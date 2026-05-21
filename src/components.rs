@@ -314,7 +314,22 @@ pub fn text_input(
     hint: &str,
     width: f32,
 ) -> Response {
-    bordered_input(ui, t, egui::Id::new(id_source), value, hint, width, None)
+    bordered_input(ui, t, egui::Id::new(id_source), value, hint, width, None, false)
+}
+
+/// A bordered single-line input that **masks** its content (API keys, secrets).
+///
+/// Identical to [`text_input`] but the characters render as dots. Same
+/// stable-`id_source` rule.
+pub fn secret_input(
+    ui: &mut Ui,
+    t: &Tokens,
+    id_source: impl Hash,
+    value: &mut String,
+    hint: &str,
+    width: f32,
+) -> Response {
+    bordered_input(ui, t, egui::Id::new(id_source), value, hint, width, None, true)
 }
 
 /// A bordered search field: a magnifier glyph + a single-line text edit.
@@ -336,10 +351,12 @@ pub fn search_field(
         hint,
         width,
         Some(icons::ph::MAGNIFYING_GLASS),
+        false,
     )
 }
 
-/// Shared implementation behind [`text_input`] and [`search_field`].
+/// Shared implementation behind [`text_input`], [`search_field`] and
+/// [`secret_input`].
 fn bordered_input(
     ui: &mut Ui,
     t: &Tokens,
@@ -348,6 +365,7 @@ fn bordered_input(
     hint: &str,
     width: f32,
     leading_glyph: Option<&str>,
+    mask: bool,
 ) -> Response {
     let height = 34.0;
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
@@ -382,6 +400,7 @@ fn bordered_input(
             .id(id)
             .hint_text(hint)
             .frame(false)
+            .password(mask)
             .desired_width(edit_rect.width()),
     )
 }
