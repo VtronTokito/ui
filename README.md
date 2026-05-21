@@ -111,6 +111,13 @@ All live in `tokito_ui::components` (aliased `c` above). Each takes
 | `modal` | `modal(ctx, t, &mut bool, title, width, \|ui\| …)` | A centred dialog over a dimmed backdrop. |
 | `page_header` | `page_header(ui, t, title, subtitle)` | A large title over a muted subtitle. |
 | `section_header` | `section_header(ui, t, title, action) -> Option<Response>` | An `h2` with an optional right-aligned action link. |
+| `nav_item` | `nav_item(ui, t, label, selected) -> Response` | A sidebar nav row — solid accent fill when selected. |
+| `checkbox` | `checkbox(ui, t, &mut bool, label, description) -> Response` | A square checkbox with a label and optional description line. |
+| `segmented` | `segmented(ui, t, options, &mut usize, width) -> Response` | A horizontal segmented control (mutually-exclusive options). |
+| `select` | `select(ui, t, id_source, current, width, \|ui\| …) -> Response` | A dropdown — trigger box + popup of `select_option`s. |
+| `select_option` | `select_option(ui, t, label, selected) -> bool` | One option row inside a `select` popup. |
+| `banner` | `banner(ui, t, kind, glyph, title, body) -> Response` | A status callout — `BannerKind::Success` / `Danger` / `Warning` / `Info`. |
+| `collapsing` | `collapsing(ui, t, id_source, label, \|ui\| …)` | A collapsible "Advanced options" disclosure section. |
 
 ### Icons
 
