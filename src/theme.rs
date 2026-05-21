@@ -102,14 +102,19 @@ pub fn apply(ctx: &Context, t: &Tokens) {
     style
         .text_styles
         .insert(TextStyle::Name(Arc::from("h3")), proportional(13.0));
-    style.text_styles.insert(TextStyle::Body, proportional(14.0));
+    style
+        .text_styles
+        .insert(TextStyle::Body, proportional(14.0));
     style
         .text_styles
         .insert(TextStyle::Button, proportional(13.5));
-    style.text_styles.insert(TextStyle::Small, proportional(12.0));
     style
         .text_styles
-        .insert(TextStyle::Monospace, FontId::new(12.0, FontFamily::Monospace));
+        .insert(TextStyle::Small, proportional(12.0));
+    style.text_styles.insert(
+        TextStyle::Monospace,
+        FontId::new(12.0, FontFamily::Monospace),
+    );
 
     style.spacing.item_spacing = egui::vec2(t.space_3, t.space_3);
     style.spacing.button_padding = egui::vec2(t.space_3, t.space_2);

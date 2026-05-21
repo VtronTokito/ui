@@ -198,13 +198,56 @@ pub fn text_button(
 /// An inline text link in the accent colour.
 pub fn link(ui: &mut Ui, t: &Tokens, label: &str) -> Response {
     let resp = ui.add(
-        egui::Label::new(RichText::new(label).color(t.accent).size(13.0))
-            .sense(Sense::click()),
+        egui::Label::new(RichText::new(label).color(t.accent).size(13.0)).sense(Sense::click()),
     );
     if resp.hovered() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
     resp
+}
+
+// ---------------------------------------------------------------------------
+// menu (kebab / dropdown)
+// ---------------------------------------------------------------------------
+
+/// A kebab / dropdown menu: an [`icon_button`] trigger that opens a popup of
+/// [`menu_item`]s below it.
+///
+/// `id_source` must be stable and unique (the popup's open state is keyed off
+/// it — pass e.g. `("design_kebab", design_id)`). The popup closes when an
+/// item is clicked or the user clicks away. Returns the trigger's [`Response`].
+pub fn menu_button(
+    ui: &mut Ui,
+    t: &Tokens,
+    id_source: impl Hash,
+    glyph: &str,
+    side: f32,
+    add_items: impl FnOnce(&mut Ui),
+) -> Response {
+    let trigger = icon_button(ui, t, glyph, side);
+    let popup_id = egui::Id::new(id_source);
+    if trigger.clicked() {
+        ui.memory_mut(|m| m.toggle_popup(popup_id));
+    }
+    egui::popup::popup_below_widget(
+        ui,
+        popup_id,
+        &trigger,
+        egui::PopupCloseBehavior::CloseOnClick,
+        |ui| {
+            ui.set_min_width(184.0);
+            add_items(ui);
+        },
+    );
+    trigger
+}
+
+/// One row of a [`menu_button`] popup: a leading icon + a label.
+///
+/// Returns `true` on the frame it is clicked (which also closes the menu).
+pub fn menu_item(ui: &mut Ui, t: &Tokens, glyph: &str, label: &str) -> bool {
+    let job = icons::icon_text(glyph, 14.0, label, 12.5, t.text);
+    list_row(ui, t, job, false).clicked()
 }
 
 // ---------------------------------------------------------------------------
@@ -218,12 +261,7 @@ pub fn link(ui: &mut Ui, t: &Tokens, label: &str) -> Response {
 /// broken in a menu or list. This paints the row manually: a background fill
 /// on hover / selection and the `job` galley pinned to the left edge. Build
 /// `job` with [`icons::icon_text`].
-pub fn list_row(
-    ui: &mut Ui,
-    t: &Tokens,
-    job: egui::text::LayoutJob,
-    selected: bool,
-) -> Response {
+pub fn list_row(ui: &mut Ui, t: &Tokens, job: egui::text::LayoutJob, selected: bool) -> Response {
     let height = 32.0;
     let (rect, response) =
         ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
@@ -310,8 +348,10 @@ fn bordered_input(
     } else {
         rect.left() + 11.0
     };
-    let edit_rect =
-        Rect::from_min_max(pos2(text_left, rect.top()), pos2(rect.right() - 9.0, rect.bottom()));
+    let edit_rect = Rect::from_min_max(
+        pos2(text_left, rect.top()),
+        pos2(rect.right() - 9.0, rect.bottom()),
+    );
     let mut edit_ui = ui.new_child(
         UiBuilder::new()
             .max_rect(edit_rect)
@@ -343,7 +383,9 @@ pub fn toggle(ui: &mut Ui, t: &Tokens, value: &mut bool, label: &str) -> Respons
         *value = !*value;
         response.mark_changed();
     }
-    let on = ui.ctx().animate_bool_with_time(response.id, *value, HOVER_TIME);
+    let on = ui
+        .ctx()
+        .animate_bool_with_time(response.id, *value, HOVER_TIME);
 
     let track_rect = Rect::from_min_size(rect.min, track);
     ui.painter().rect_filled(
@@ -351,17 +393,17 @@ pub fn toggle(ui: &mut Ui, t: &Tokens, value: &mut bool, label: &str) -> Respons
         egui::Rounding::same(track.y / 2.0),
         lerp_color(t.border_strong, t.accent, on),
     );
-    let knob_x = egui::lerp(
-        (track_rect.left() + 11.0)..=(track_rect.right() - 11.0),
-        on,
-    );
+    let knob_x = egui::lerp((track_rect.left() + 11.0)..=(track_rect.right() - 11.0), on);
     ui.painter().circle_filled(
         pos2(knob_x, track_rect.center().y),
         8.0,
         Color32::from_rgb(0xfa, 0xfb, 0xfc),
     );
     ui.painter().galley(
-        pos2(track_rect.right() + 9.0, rect.center().y - galley.size().y / 2.0),
+        pos2(
+            track_rect.right() + 9.0,
+            rect.center().y - galley.size().y / 2.0,
+        ),
         galley,
         t.text,
     );
