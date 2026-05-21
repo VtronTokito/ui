@@ -548,6 +548,415 @@ pub fn section_header(
 }
 
 // ---------------------------------------------------------------------------
+// vertical navigation
+// ---------------------------------------------------------------------------
+
+/// A vertical-navigation row — a full-width clickable item with a solid
+/// accent fill when `selected`.
+///
+/// For sidebars: a settings dialog's section list, a wizard's steps. Unlike
+/// [`list_row`] (a menu / list row with a *soft* selection wash), `nav_item`
+/// paints a solid `accent` pill for the active item. Returns its [`Response`].
+pub fn nav_item(ui: &mut Ui, t: &Tokens, label: &str, selected: bool) -> Response {
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), 36.0), Sense::click());
+    let hv = hover_t(ui, response.id, response.hovered());
+    let bg = if selected {
+        t.accent
+    } else {
+        t.card_hover.gamma_multiply(hv)
+    };
+    if bg.a() > 0 {
+        ui.painter().rect_filled(rect, t.rounding_sm(), bg);
+    }
+    let ink = if selected {
+        t.accent_ink
+    } else {
+        lerp_color(t.text_2, t.text, hv)
+    };
+    ui.painter().text(
+        pos2(rect.left() + 12.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        label,
+        TextStyle::Body.resolve(ui.style()),
+        ink,
+    );
+    if response.hovered() && !selected {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    response
+}
+
+// ---------------------------------------------------------------------------
+// form controls
+// ---------------------------------------------------------------------------
+
+/// A square checkbox with a `label` and an optional `description` line beneath.
+///
+/// Clicking anywhere on the row flips `*value`; the box eases an animated tick
+/// in. `description` is muted helper text under the label. Returns the row's
+/// [`Response`] — test `.changed()` to react to a flip. Use this (not
+/// [`toggle`]) when the control is one of several settings in a form; reach
+/// for [`toggle`] for a single prominent on/off switch.
+pub fn checkbox(
+    ui: &mut Ui,
+    t: &Tokens,
+    value: &mut bool,
+    label: &str,
+    description: Option<&str>,
+) -> Response {
+    let box_side = 18.0_f32;
+    let gap = 10.0;
+    let label_galley =
+        ui.painter()
+            .layout_no_wrap(label.to_owned(), TextStyle::Body.resolve(ui.style()), t.text);
+    let desc_galley = description.map(|d| {
+        ui.painter()
+            .layout_no_wrap(d.to_owned(), TextStyle::Small.resolve(ui.style()), t.text_3)
+    });
+    let label_h = label_galley.size().y;
+    let text_w = label_galley
+        .size()
+        .x
+        .max(desc_galley.as_ref().map_or(0.0, |g| g.size().x));
+    let text_h = label_h + desc_galley.as_ref().map_or(0.0, |g| 3.0 + g.size().y);
+    let row_h = box_side.max(text_h);
+
+    let (rect, mut response) =
+        ui.allocate_exact_size(vec2(box_side + gap + text_w, row_h), Sense::click());
+    if response.clicked() {
+        *value = !*value;
+        response.mark_changed();
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    let on = ui
+        .ctx()
+        .animate_bool_with_time(response.id, *value, HOVER_TIME);
+    let hv = hover_t(ui, response.id.with("hover"), response.hovered());
+
+    let box_rect = Rect::from_min_size(
+        pos2(rect.left(), rect.center().y - box_side / 2.0),
+        Vec2::splat(box_side),
+    );
+    ui.painter()
+        .rect_filled(box_rect, t.rounding_sm(), lerp_color(t.card, t.accent, on));
+    let border = lerp_color(lerp_color(t.border, t.border_strong, hv), t.accent, on);
+    ui.painter()
+        .rect_stroke(box_rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, border));
+    if on > 0.01 {
+        let c = box_rect.center();
+        let stroke = Stroke::new(2.0, t.accent_ink.gamma_multiply(on));
+        ui.painter().line_segment(
+            [
+                pos2(c.x - box_side * 0.24, c.y + box_side * 0.02),
+                pos2(c.x - box_side * 0.04, c.y + box_side * 0.20),
+            ],
+            stroke,
+        );
+        ui.painter().line_segment(
+            [
+                pos2(c.x - box_side * 0.04, c.y + box_side * 0.20),
+                pos2(c.x + box_side * 0.26, c.y - box_side * 0.18),
+            ],
+            stroke,
+        );
+    }
+
+    let text_x = rect.left() + box_side + gap;
+    let text_top = rect.top() + (row_h - text_h) / 2.0;
+    ui.painter()
+        .galley(pos2(text_x, text_top), label_galley, t.text);
+    if let Some(g) = desc_galley {
+        ui.painter()
+            .galley(pos2(text_x, text_top + label_h + 3.0), g, t.text_3);
+    }
+    response
+}
+
+/// A horizontal segmented control — a row of mutually-exclusive options.
+///
+/// `*selected` is the index of the active segment; clicking a segment sets it.
+/// Segments split `width` evenly. Returns the row [`Response`]; `.changed()`
+/// fires on a new selection.
+pub fn segmented(
+    ui: &mut Ui,
+    t: &Tokens,
+    options: &[&str],
+    selected: &mut usize,
+    width: f32,
+) -> Response {
+    let (rect, mut response) = ui.allocate_exact_size(vec2(width, 34.0), Sense::hover());
+    ui.painter().rect_filled(rect, t.rounding_sm(), t.card);
+    ui.painter()
+        .rect_stroke(rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, t.border));
+
+    let n = options.len().max(1);
+    let seg_w = rect.width() / n as f32;
+    let font = TextStyle::Button.resolve(ui.style());
+    for (i, label) in options.iter().enumerate() {
+        let seg = Rect::from_min_size(
+            pos2(rect.left() + seg_w * i as f32, rect.top()),
+            vec2(seg_w, rect.height()),
+        );
+        let id = response.id.with(i);
+        let seg_resp = ui.interact(seg, id, Sense::click());
+        let active = i == *selected;
+        if seg_resp.clicked() && !active {
+            *selected = i;
+            response.mark_changed();
+        }
+        let hv = hover_t(ui, id, seg_resp.hovered());
+        if active {
+            ui.painter()
+                .rect_filled(seg.shrink(3.0), t.rounding_sm(), t.accent);
+        } else if hv > 0.001 {
+            ui.painter().rect_filled(
+                seg.shrink(3.0),
+                t.rounding_sm(),
+                t.card_hover.gamma_multiply(hv),
+            );
+        }
+        let ink = if active {
+            t.accent_ink
+        } else {
+            lerp_color(t.text_2, t.text, hv)
+        };
+        ui.painter().text(
+            seg.center(),
+            egui::Align2::CENTER_CENTER,
+            *label,
+            font.clone(),
+            ink,
+        );
+    }
+    response
+}
+
+/// A dropdown select. The trigger box shows `current` and a caret; clicking it
+/// opens a popup below, which `add_options` fills with [`select_option`] rows.
+///
+/// `id_source` must be stable and unique — the popup's open state is keyed off
+/// it. `width` fixes the trigger width. Returns the trigger [`Response`]; the
+/// caller learns of a new choice from the [`select_option`] it builds.
+pub fn select(
+    ui: &mut Ui,
+    t: &Tokens,
+    id_source: impl Hash,
+    current: &str,
+    width: f32,
+    add_options: impl FnOnce(&mut Ui),
+) -> Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 34.0), Sense::click());
+    let popup_id = egui::Id::new(id_source);
+    let open = ui.memory(|m| m.is_popup_open(popup_id));
+    let hv = hover_t(ui, response.id, response.hovered() || open);
+
+    ui.painter().rect_filled(rect, t.rounding_sm(), t.bg_chrome);
+    let border = if open {
+        t.accent
+    } else {
+        lerp_color(t.border, t.border_strong, hv)
+    };
+    ui.painter()
+        .rect_stroke(rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, border));
+    ui.painter().text(
+        pos2(rect.left() + 11.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        current,
+        TextStyle::Body.resolve(ui.style()),
+        t.text,
+    );
+    ui.painter().text(
+        pos2(rect.right() - 11.0, rect.center().y),
+        egui::Align2::RIGHT_CENTER,
+        icons::ph::CARET_DOWN,
+        icons::font(13.0),
+        t.text_3,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    if response.clicked() {
+        ui.memory_mut(|m| m.toggle_popup(popup_id));
+    }
+    egui::popup::popup_below_widget(
+        ui,
+        popup_id,
+        &response,
+        egui::PopupCloseBehavior::CloseOnClick,
+        |ui| {
+            ui.set_min_width(width);
+            add_options(ui);
+        },
+    );
+    response
+}
+
+/// One option row inside a [`select`] popup. Shows a tick when `selected`,
+/// and returns `true` on the frame it is clicked (which also closes the menu).
+pub fn select_option(ui: &mut Ui, t: &Tokens, label: &str, selected: bool) -> bool {
+    let mut job = egui::text::LayoutJob::default();
+    job.append(
+        icons::ph::CHECK,
+        0.0,
+        egui::text::TextFormat {
+            font_id: icons::font(13.0),
+            // Transparent (not omitted) so selected and unselected rows align.
+            color: if selected { t.accent } else { Color32::TRANSPARENT },
+            ..Default::default()
+        },
+    );
+    job.append(
+        label,
+        8.0,
+        egui::text::TextFormat {
+            font_id: TextStyle::Body.resolve(ui.style()),
+            color: t.text,
+            ..Default::default()
+        },
+    );
+    list_row(ui, t, job, selected).clicked()
+}
+
+// ---------------------------------------------------------------------------
+// banner & collapsing
+// ---------------------------------------------------------------------------
+
+/// Visual tone of a [`banner`] — picks its accent colour.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum BannerKind {
+    /// Positive / ready state — the `success` colour.
+    Success,
+    /// Error / blocking state — the `danger` colour.
+    Danger,
+    /// Caution — the `warning` colour.
+    Warning,
+    /// Neutral information — a muted grey.
+    Info,
+}
+
+/// A full-width status callout: a leading icon, a bold `title`, and a wrapped
+/// muted `body` line, on a tinted panel.
+///
+/// `kind` sets the accent colour; `glyph` is the leading [`icons::ph`] icon.
+/// The banner sizes its height to the wrapped body text.
+pub fn banner(
+    ui: &mut Ui,
+    t: &Tokens,
+    kind: BannerKind,
+    glyph: &str,
+    title: &str,
+    body: &str,
+) -> Response {
+    let accent = match kind {
+        BannerKind::Success => t.success,
+        BannerKind::Danger => t.danger,
+        BannerKind::Warning => t.warning,
+        BannerKind::Info => t.text_2,
+    };
+    let pad = t.space_3;
+    let icon_box = 22.0;
+    let width = ui.available_width();
+    let text_left = pad + icon_box + 10.0;
+
+    let title_galley = ui.painter().layout_no_wrap(
+        title.to_owned(),
+        TextStyle::Body.resolve(ui.style()),
+        t.text,
+    );
+    let body_galley = ui.painter().layout(
+        body.to_owned(),
+        TextStyle::Small.resolve(ui.style()),
+        t.text_2,
+        (width - text_left - pad).max(40.0),
+    );
+    let title_h = title_galley.size().y;
+    let content_h = title_h + 3.0 + body_galley.size().y;
+    let height = (content_h + pad * 2.0).max(icon_box + pad * 2.0);
+
+    let (rect, response) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
+    ui.painter().rect_filled(
+        rect,
+        t.rounding_md(),
+        accent.gamma_multiply(if t.dark { 0.16 } else { 0.10 }),
+    );
+    ui.painter().rect_stroke(
+        rect.shrink(0.5),
+        t.rounding_md(),
+        Stroke::new(1.0, accent.gamma_multiply(0.55)),
+    );
+    ui.painter().text(
+        pos2(
+            rect.left() + pad + icon_box / 2.0,
+            rect.top() + pad + icon_box / 2.0,
+        ),
+        egui::Align2::CENTER_CENTER,
+        glyph,
+        icons::font(18.0),
+        accent,
+    );
+    let tx = rect.left() + text_left;
+    let ty = rect.top() + (height - content_h) / 2.0;
+    ui.painter().galley(pos2(tx, ty), title_galley, t.text);
+    ui.painter()
+        .galley(pos2(tx, ty + title_h + 3.0), body_galley, t.text_2);
+    response
+}
+
+/// A collapsible section: a clickable header (caret + `label`) that shows or
+/// hides `add_body`.
+///
+/// Open state persists in egui memory under `id_source`, which must be stable
+/// and unique. Use it for "Advanced options" disclosure.
+pub fn collapsing(
+    ui: &mut Ui,
+    t: &Tokens,
+    id_source: impl Hash,
+    label: &str,
+    add_body: impl FnOnce(&mut Ui),
+) {
+    let id = egui::Id::new(id_source).with("tokito_ui_collapsing");
+    let mut open = ui.data(|d| d.get_temp::<bool>(id).unwrap_or(false));
+
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), 28.0), Sense::click());
+    if response.clicked() {
+        open = !open;
+        ui.data_mut(|d| d.insert_temp(id, open));
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    let hv = hover_t(ui, response.id, response.hovered());
+    let ink = lerp_color(t.text_2, t.text, hv);
+    let caret = if open {
+        icons::ph::CARET_DOWN
+    } else {
+        icons::ph::CARET_RIGHT
+    };
+    ui.painter().text(
+        pos2(rect.left() + 2.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        caret,
+        icons::font(13.0),
+        ink,
+    );
+    ui.painter().text(
+        pos2(rect.left() + 20.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        label,
+        TextStyle::Button.resolve(ui.style()),
+        ink,
+    );
+    if open {
+        ui.add_space(t.space_2);
+        add_body(ui);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // painting helpers
 // ---------------------------------------------------------------------------
 
