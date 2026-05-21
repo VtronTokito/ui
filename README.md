@@ -105,6 +105,7 @@ All live in `tokito_ui::components` (aliased `c` above). Each takes
 | `list_row` | `list_row(ui, t, job, selected) -> Response` | A full-width, left-aligned, hover-highlighted row. |
 | `text_input` | `text_input(ui, t, id_source, &mut String, hint, width) -> Response` | A bordered single-line input. |
 | `search_field` | `search_field(ui, t, id_source, &mut String, hint, width) -> Response` | `text_input` with a leading magnifier. |
+| `secret_input` | `secret_input(ui, t, id_source, &mut String, hint, width) -> Response` | `text_input` that masks its content (API keys, secrets). |
 | `toggle` | `toggle(ui, t, &mut bool, label) -> Response` | An animated switch with a trailing label. |
 | `menu_button` | `menu_button(ui, t, id_source, glyph, side, \|ui\| …)` | A kebab trigger that opens a popup of `menu_item`s. |
 | `menu_item` | `menu_item(ui, t, glyph, label) -> bool` | One row of a `menu_button` popup. |
