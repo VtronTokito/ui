@@ -1,4 +1,4 @@
-//! Apply [`Tokens`] to an egui [`Context`](egui::Context).
+//! Apply [`Tokens`] to an egui [`Context`].
 //!
 //! [`apply`] sets the visuals, a named type scale and spacing. [`add_phosphor`]
 //! wires the Phosphor icon font — call it from the consumer's font setup,

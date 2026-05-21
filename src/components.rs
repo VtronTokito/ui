@@ -206,6 +206,26 @@ pub fn link(ui: &mut Ui, t: &Tokens, label: &str) -> Response {
     resp
 }
 
+/// A small bordered pill — a count or status chip, e.g. next to a heading.
+pub fn badge(ui: &mut Ui, t: &Tokens, text: &str) -> Response {
+    let galley = ui.painter().layout_no_wrap(
+        text.to_owned(),
+        TextStyle::Small.resolve(ui.style()),
+        t.text_3,
+    );
+    let pad = vec2(9.0, 4.0);
+    let (rect, response) = ui.allocate_exact_size(galley.size() + pad * 2.0, Sense::hover());
+    ui.painter().rect_filled(rect, t.rounding_sm(), t.card);
+    ui.painter().rect_stroke(
+        rect.shrink(0.5),
+        t.rounding_sm(),
+        Stroke::new(1.0, t.border),
+    );
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, t.text_3);
+    response
+}
+
 // ---------------------------------------------------------------------------
 // menu (kebab / dropdown)
 // ---------------------------------------------------------------------------

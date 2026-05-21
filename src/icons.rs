@@ -1,7 +1,7 @@
 //! Phosphor icon helpers.
 //!
-//! Icons render through the dedicated [`ICON_FAMILY`](crate::theme::ICON_FAMILY)
-//! font family so their Private-Use-Area codepoints can never be intercepted
+//! Icons render through the dedicated [`ICON_FAMILY`] font family
+//! so their Private-Use-Area codepoints can never be intercepted
 //! by a text font that occupies the same PUA range. Rendering an icon through
 //! the normal proportional family is the classic egui-icon bug — a stray text
 //! glyph paints instead of the icon.
