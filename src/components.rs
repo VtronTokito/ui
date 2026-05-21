@@ -242,12 +242,26 @@ pub fn list_row(
     response
 }
 
-/// A bordered search field: a magnifier glyph + a single-line text edit.
+/// A bordered single-line text input.
 ///
 /// `id_source` must be **stable and unique** across frames — the inner
 /// `TextEdit`'s identity (focus, cursor, undo history) is keyed off it. Pass
-/// something like `"design_search"`, never a value derived from layout
+/// something like `"project_name"`, never a value derived from layout
 /// position. `width` fixes the field width. Returns the `TextEdit` response.
+pub fn text_input(
+    ui: &mut Ui,
+    t: &Tokens,
+    id_source: impl Hash,
+    value: &mut String,
+    hint: &str,
+    width: f32,
+) -> Response {
+    bordered_input(ui, t, egui::Id::new(id_source), value, hint, width, None)
+}
+
+/// A bordered search field: a magnifier glyph + a single-line text edit.
+///
+/// Same identity rules as [`text_input`].
 pub fn search_field(
     ui: &mut Ui,
     t: &Tokens,
@@ -256,37 +270,176 @@ pub fn search_field(
     hint: &str,
     width: f32,
 ) -> Response {
-    let id = egui::Id::new(id_source);
-    let height = 32.0;
+    bordered_input(
+        ui,
+        t,
+        egui::Id::new(id_source),
+        query,
+        hint,
+        width,
+        Some(icons::ph::MAGNIFYING_GLASS),
+    )
+}
+
+/// Shared implementation behind [`text_input`] and [`search_field`].
+fn bordered_input(
+    ui: &mut Ui,
+    t: &Tokens,
+    id: egui::Id,
+    value: &mut String,
+    hint: &str,
+    width: f32,
+    leading_glyph: Option<&str>,
+) -> Response {
+    let height = 34.0;
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     let focused = ui.memory(|m| m.has_focus(id));
     let border = if focused { t.accent } else { t.border };
     ui.painter().rect_filled(rect, t.rounding_sm(), t.bg_chrome);
     ui.painter()
         .rect_stroke(rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, border));
-    ui.painter().text(
-        pos2(rect.left() + 12.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        icons::ph::MAGNIFYING_GLASS,
-        icons::font(14.0),
-        t.text_3,
-    );
-    let edit_rect = Rect::from_min_max(
-        pos2(rect.left() + 32.0, rect.top()),
-        pos2(rect.right() - 8.0, rect.bottom()),
-    );
+    let text_left = if let Some(glyph) = leading_glyph {
+        ui.painter().text(
+            pos2(rect.left() + 12.0, rect.center().y),
+            egui::Align2::LEFT_CENTER,
+            glyph,
+            icons::font(14.0),
+            t.text_3,
+        );
+        rect.left() + 32.0
+    } else {
+        rect.left() + 11.0
+    };
+    let edit_rect =
+        Rect::from_min_max(pos2(text_left, rect.top()), pos2(rect.right() - 9.0, rect.bottom()));
     let mut edit_ui = ui.new_child(
         UiBuilder::new()
             .max_rect(edit_rect)
             .layout(Layout::left_to_right(Align::Center)),
     );
     edit_ui.add(
-        egui::TextEdit::singleline(query)
+        egui::TextEdit::singleline(value)
             .id(id)
             .hint_text(hint)
             .frame(false)
             .desired_width(edit_rect.width()),
     )
+}
+
+/// A switch / toggle with a trailing `label`.
+///
+/// Flips `*value` on click and animates the knob + track. Returns the row's
+/// [`Response`].
+pub fn toggle(ui: &mut Ui, t: &Tokens, value: &mut bool, label: &str) -> Response {
+    let track = vec2(38.0, 22.0);
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        TextStyle::Body.resolve(ui.style()),
+        Color32::PLACEHOLDER,
+    );
+    let total = vec2(track.x + 9.0 + galley.size().x, track.y);
+    let (rect, mut response) = ui.allocate_exact_size(total, Sense::click());
+    if response.clicked() {
+        *value = !*value;
+        response.mark_changed();
+    }
+    let on = ui.ctx().animate_bool_with_time(response.id, *value, HOVER_TIME);
+
+    let track_rect = Rect::from_min_size(rect.min, track);
+    ui.painter().rect_filled(
+        track_rect,
+        egui::Rounding::same(track.y / 2.0),
+        lerp_color(t.border_strong, t.accent, on),
+    );
+    let knob_x = egui::lerp(
+        (track_rect.left() + 11.0)..=(track_rect.right() - 11.0),
+        on,
+    );
+    ui.painter().circle_filled(
+        pos2(knob_x, track_rect.center().y),
+        8.0,
+        Color32::from_rgb(0xfa, 0xfb, 0xfc),
+    );
+    ui.painter().galley(
+        pos2(track_rect.right() + 9.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        t.text,
+    );
+    response
+}
+
+// ---------------------------------------------------------------------------
+// modal
+// ---------------------------------------------------------------------------
+
+/// A centred modal dialog over a dimmed backdrop.
+///
+/// Renders only while `*open` is `true`. Sets `*open = false` when the user
+/// presses Escape, clicks the backdrop, or clicks the close button.
+/// `add_contents` runs inside the dialog body (16 px inset, `width` wide).
+///
+/// Call this at the top level of a frame (like a context-menu / overlay), not
+/// nested inside a panel.
+pub fn modal(
+    ctx: &egui::Context,
+    t: &Tokens,
+    open: &mut bool,
+    title: &str,
+    width: f32,
+    add_contents: impl FnOnce(&mut Ui),
+) {
+    if !*open {
+        return;
+    }
+    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        *open = false;
+        return;
+    }
+
+    let screen = ctx.screen_rect();
+    // Dimmed backdrop — a full-screen click target that closes the modal.
+    let backdrop = egui::Area::new(egui::Id::new(("tokito_ui_modal_backdrop", title)))
+        .order(egui::Order::Foreground)
+        .fixed_pos(screen.min)
+        .show(ctx, |ui| {
+            let resp = ui.allocate_rect(screen, Sense::click());
+            ui.painter()
+                .rect_filled(screen, 0.0, Color32::from_black_alpha(150));
+            resp
+        });
+    if backdrop.inner.clicked() {
+        *open = false;
+    }
+
+    // The dialog itself, centred, above the backdrop.
+    egui::Area::new(egui::Id::new(("tokito_ui_modal", title)))
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, -20.0])
+        .show(ctx, |ui| {
+            egui::Frame::none()
+                .fill(t.bg_chrome)
+                .stroke(Stroke::new(1.0, t.border_strong))
+                .rounding(t.rounding_md())
+                .inner_margin(egui::Margin::same(t.space_4))
+                .show(ui, |ui| {
+                    ui.set_width(width);
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(title)
+                                .text_style(TextStyle::Name("h2".into()))
+                                .strong()
+                                .color(t.text),
+                        );
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if icon_button(ui, t, icons::ph::X, 26.0).clicked() {
+                                *open = false;
+                            }
+                        });
+                    });
+                    ui.add_space(t.space_3);
+                    add_contents(ui);
+                });
+        });
 }
 
 // ---------------------------------------------------------------------------
