@@ -49,13 +49,37 @@ src/
 - **Version coupling.** Pin `egui` 0.29 and `egui-phosphor` 0.7.x together
   (≥ 0.8 targets egui ≥ 0.30). Bumping is a coordinated change.
 
+## STRICT — this repo is the *only* place UI components are defined
+
+Any consumer (the Tokito app, etc.) that needs a UI element — a button
+variant, an input, a dialog, a list row, a chip, a changed look or
+behaviour — **must change `tokito_ui`**, not hand-roll a widget in its own
+codebase:
+
+1. **Add a new `pub fn`** in `components.rs`, **or**
+2. **Add / extend a parameter** on an existing component.
+
+**Prefer extending an existing component over creating a near-duplicate.**
+If two components would differ only by a colour, a size, or a flag, that is
+one component with a parameter — add the parameter.
+
+A consumer drawing its own widget with raw `egui` painter / `Frame` /
+`Button` calls is a **review-blocking mistake**: the fix is to move that
+widget here. Consumers may only *compose* domain widgets (a "project card")
+out of these primitives.
+
 ## Working here
 
-- `cargo clippy` must pass clean — that is the quality bar.
-- A new component goes in `components.rs`, keeps the free-function shape, and
-  gets a doc comment. Update `README.md`'s component list.
+- `cargo clippy` and `cargo fmt --all -- --check` must pass clean — CI
+  enforces both, plus `cargo doc` with `-D warnings`.
+- A new component goes in `components.rs`, keeps the free-function shape
+  `fn(ui, t, …)`, and gets a doc comment. Update `README.md`'s component
+  table.
+- Extending a component's parameters is a normal, encouraged change — that is
+  how the library grows. Keep it backwards-compatible where you can.
 - Tokito consumes this as a **path dependency** during co-development and a
-  **git dependency** on its `master`.
+  **git dependency** on its `master`. After pushing here, the consumer runs
+  `cargo update -p tokito_ui` to pick up the change.
 
 ## Known follow-ups
 
