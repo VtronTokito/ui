@@ -24,7 +24,6 @@ pub mod icons;
 pub mod theme;
 pub mod tokens;
 
-pub use egui_phosphor;
 pub use tokens::Tokens;
 
 /// Linear-interpolate between two colours (channel-wise, non-premultiplied).

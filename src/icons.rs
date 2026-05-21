@@ -31,8 +31,9 @@ pub fn icon(glyph: &str, size: f32, color: Color32) -> RichText {
 ///
 /// The icon section renders from the icon family; the text section from the
 /// default proportional family. Pass the result to [`egui::Button::new`],
-/// [`egui::Ui::label`], [`egui::Ui::button`], etc.
-pub fn label(
+/// [`egui::Ui::label`], [`egui::Ui::button`], [`crate::components::list_row`],
+/// etc.
+pub fn icon_text(
     glyph: &str,
     icon_size: f32,
     text: &str,

@@ -37,10 +37,15 @@ pub fn add_phosphor(fonts: &mut FontDefinitions) {
 
 /// Apply tokens to the context: visuals, the named type scale and spacing.
 ///
+/// The theme (light / dark) comes from [`Tokens::dark`] — one source of truth.
 /// Fonts are the consumer's responsibility (see [`add_phosphor`]); this only
 /// touches [`egui::Style`] and [`egui::Visuals`].
-pub fn apply(ctx: &Context, t: &Tokens, dark: bool) {
-    let mut visuals = if dark { Visuals::dark() } else { Visuals::light() };
+pub fn apply(ctx: &Context, t: &Tokens) {
+    let mut visuals = if t.dark {
+        Visuals::dark()
+    } else {
+        Visuals::light()
+    };
 
     visuals.override_text_color = Some(t.text);
     visuals.window_fill = t.bg_chrome;

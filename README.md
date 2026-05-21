@@ -39,7 +39,7 @@ ctx.set_fonts(fonts);
 
 // every frame the theme could change
 let tokens = tokito_ui::Tokens::dark();
-tokito_ui::theme::apply(ctx, &tokens, true);
+tokito_ui::theme::apply(ctx, &tokens); // light/dark comes from `tokens.dark`
 
 // in UI code
 use tokito_ui::components as c;
