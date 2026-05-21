@@ -7,12 +7,20 @@ description = "A small, opinionated egui component library — the design layer 
 license = "MIT"
 repository = "https://github.com/VtronTokito/ui"
 readme = "README.md"
-keywords = ["egui", "gui", "ui", "components", "design-system"]
-categories = ["gui"]
+keywords = ["egui", "eframe", "gui", "components", "design-system"]
+categories = ["gui", "rendering::gui"]
 
 [dependencies]
 egui = "0.29"
 egui-phosphor = { version = "0.7", default-features = false, features = ["regular"] }
 
+[dev-dependencies]
+eframe = "0.29"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 [lints.clippy]
 too_many_arguments = "allow"
+
+[[example]]
+name = "gallery"
+path = "examples/gallery.rs"

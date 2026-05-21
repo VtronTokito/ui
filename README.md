@@ -1,12 +1,31 @@
-# tokito_ui
+# tokito_ui — an egui component library for Rust desktop apps
 
-A small, opinionated [`egui`](https://github.com/emilk/egui) **0.29** component
-library — the shared design layer for the
-[Tokito](https://github.com/VtronTokito/tokito) desktop schematic studio.
+**Ready-made [egui](https://github.com/emilk/egui) components — cards, modals,
+buttons, inputs, menus, toggles — plus light/dark theming and Phosphor icons.
+A small, opinionated UI component library and design system for Rust GUI apps.**
 
-It is not a framework. It is a flat token palette, a theme applier, icon
-helpers, and a set of composable primitives. Every component is a free
-function; there is no global state.
+`tokito_ui` is an **egui 0.29 component library**: a flat colour-token palette,
+a theme applier, icon helpers, and a set of composable widget primitives. It is
+the shared design layer of the
+[Tokito](https://github.com/VtronTokito/tokito) desktop schematic studio, and
+drops into any [`egui`](https://github.com/emilk/egui) /
+[`eframe`](https://github.com/emilk/egui/tree/master/crates/eframe)
+application.
+
+Think of it as a lightweight, native-Rust take on a shadcn-style component
+set for egui — you own the look, the components compose.
+
+It is not a framework. Every component is a free function; there is no global
+state. Keywords: egui components, egui widgets, egui ui library, Rust GUI,
+eframe, immediate-mode UI, design system, dark mode.
+
+## Gallery
+
+| Dark | Light |
+|---|---|
+| ![tokito_ui — dark](docs/gallery-dark.png) | ![tokito_ui — light](docs/gallery-light.png) |
+
+Browse it live: `cargo run --example gallery`.
 
 ---
 
