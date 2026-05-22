@@ -659,11 +659,13 @@ pub fn checkbox(
         pos2(rect.left(), rect.center().y - box_side / 2.0),
         Vec2::splat(box_side),
     );
+    // A checkbox box reads as a square — `radius_sm` on an 18 px box looks
+    // like a circle, so use the tighter `radius_xs`.
     ui.painter()
-        .rect_filled(box_rect, t.rounding_sm(), lerp_color(t.card, t.accent, on));
+        .rect_filled(box_rect, t.rounding_xs(), lerp_color(t.card, t.accent, on));
     let border = lerp_color(lerp_color(t.border, t.border_strong, hv), t.accent, on);
     ui.painter()
-        .rect_stroke(box_rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, border));
+        .rect_stroke(box_rect.shrink(0.5), t.rounding_xs(), Stroke::new(1.0, border));
     if on > 0.01 {
         let c = box_rect.center();
         let stroke = Stroke::new(2.0, t.accent_ink.gamma_multiply(on));

@@ -68,6 +68,9 @@ pub struct Tokens {
     pub success: Color32,
 
     /// Corner radii.
+    /// Extra-small — tight controls where `radius_sm` reads as a circle
+    /// (checkbox boxes, small swatches).
+    pub radius_xs: f32,
     pub radius_sm: f32,
     pub radius_md: f32,
     pub radius_lg: f32,
@@ -104,6 +107,7 @@ impl Tokens {
             danger: Color32::from_rgb(0xef, 0x5c, 0x68),
             warning: Color32::from_rgb(0xe0, 0xa4, 0x3f),
             success: Color32::from_rgb(0x3e, 0xcf, 0x8e),
+            radius_xs: 4.0,
             radius_sm: 7.0,
             radius_md: 12.0,
             radius_lg: 16.0,
@@ -138,6 +142,7 @@ impl Tokens {
             danger: Color32::from_rgb(0xcf, 0x43, 0x4c),
             warning: Color32::from_rgb(0xb8, 0x7a, 0x18),
             success: Color32::from_rgb(0x1a, 0x9d, 0x6a),
+            radius_xs: 4.0,
             radius_sm: 7.0,
             radius_md: 12.0,
             radius_lg: 16.0,
@@ -166,5 +171,10 @@ impl Tokens {
     /// `radius_sm` as an [`egui::Rounding`].
     pub fn rounding_sm(&self) -> egui::Rounding {
         egui::Rounding::same(self.radius_sm)
+    }
+
+    /// `radius_xs` as an [`egui::Rounding`].
+    pub fn rounding_xs(&self) -> egui::Rounding {
+        egui::Rounding::same(self.radius_xs)
     }
 }
