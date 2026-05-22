@@ -121,8 +121,10 @@ pub fn new_tile(
 
 /// A square, frameless icon button. `glyph` is a [`icons::ph`] constant.
 ///
-/// `side` is the button's width and height. Hover eases a soft background in.
-pub fn icon_button(ui: &mut Ui, t: &Tokens, glyph: &str, side: f32) -> Response {
+/// `side` is the button's width and height; `ink` is the glyph's rest colour
+/// (pass `t.text_2` for a muted button, `t.text` or `t.accent` for a
+/// prominent one). Hover eases a soft background in and brightens the glyph.
+pub fn icon_button(ui: &mut Ui, t: &Tokens, glyph: &str, side: f32, ink: Color32) -> Response {
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(side), Sense::click());
     let hv = hover_t(ui, response.id, response.hovered());
     if hv > 0.001 {
@@ -134,13 +136,12 @@ pub fn icon_button(ui: &mut Ui, t: &Tokens, glyph: &str, side: f32) -> Response 
             Stroke::new(1.0, t.border.gamma_multiply(hv)),
         );
     }
-    let ink = lerp_color(t.text_2, t.text, hv);
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
         glyph,
         icons::font(side * 0.5),
-        ink,
+        lerp_color(ink, Color32::WHITE, 0.3 * hv),
     );
     response
 }
@@ -244,7 +245,7 @@ pub fn menu_button(
     side: f32,
     add_items: impl FnOnce(&mut Ui),
 ) -> Response {
-    let trigger = icon_button(ui, t, glyph, side);
+    let trigger = icon_button(ui, t, glyph, side, t.text_2);
     let popup_id = egui::Id::new(id_source);
     if trigger.clicked() {
         ui.memory_mut(|m| m.toggle_popup(popup_id));
@@ -530,7 +531,7 @@ pub fn modal(
                                 .color(t.text),
                         );
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if icon_button(ui, t, icons::ph::X, 26.0).clicked() {
+                            if icon_button(ui, t, icons::ph::X, 26.0, t.text_2).clicked() {
                                 *open = false;
                             }
                         });
