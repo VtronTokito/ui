@@ -122,7 +122,7 @@ impl Gallery {
                 } else {
                     icons::ph::MOON
                 };
-                if c::icon_button(ui, t, glyph, 32.0).clicked() {
+                if c::icon_button(ui, t, glyph, 32.0, t.text_2).clicked() {
                     self.dark = !self.dark;
                 }
             });
@@ -142,8 +142,8 @@ impl Gallery {
             ui.add_space(8.0);
             c::text_button(ui, t, c::ButtonKind::Secondary, "Secondary", 34.0);
             ui.add_space(12.0);
-            c::icon_button(ui, t, icons::ph::GEAR_SIX, 34.0);
-            c::icon_button(ui, t, icons::ph::TRASH, 34.0);
+            c::icon_button(ui, t, icons::ph::GEAR_SIX, 34.0, t.text_2);
+            c::icon_button(ui, t, icons::ph::TRASH, 34.0, t.accent);
             ui.add_space(12.0);
             c::link(ui, t, "A text link");
         });
