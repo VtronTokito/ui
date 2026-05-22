@@ -314,7 +314,16 @@ pub fn text_input(
     hint: &str,
     width: f32,
 ) -> Response {
-    bordered_input(ui, t, egui::Id::new(id_source), value, hint, width, None, false)
+    bordered_input(
+        ui,
+        t,
+        egui::Id::new(id_source),
+        value,
+        hint,
+        width,
+        None,
+        false,
+    )
 }
 
 /// A bordered single-line input that **masks** its content (API keys, secrets).
@@ -329,7 +338,16 @@ pub fn secret_input(
     hint: &str,
     width: f32,
 ) -> Response {
-    bordered_input(ui, t, egui::Id::new(id_source), value, hint, width, None, true)
+    bordered_input(
+        ui,
+        t,
+        egui::Id::new(id_source),
+        value,
+        hint,
+        width,
+        None,
+        true,
+    )
 }
 
 /// A bordered search field: a magnifier glyph + a single-line text edit.
@@ -577,8 +595,7 @@ pub fn section_header(
 /// [`list_row`] (a menu / list row with a *soft* selection wash), `nav_item`
 /// paints a solid `accent` pill for the active item. Returns its [`Response`].
 pub fn nav_item(ui: &mut Ui, t: &Tokens, label: &str, selected: bool) -> Response {
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), 36.0), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 36.0), Sense::click());
     let hv = hover_t(ui, response.id, response.hovered());
     let bg = if selected {
         t.accent
@@ -626,9 +643,11 @@ pub fn checkbox(
 ) -> Response {
     let box_side = 18.0_f32;
     let gap = 10.0;
-    let label_galley =
-        ui.painter()
-            .layout_no_wrap(label.to_owned(), TextStyle::Body.resolve(ui.style()), t.text);
+    let label_galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        TextStyle::Body.resolve(ui.style()),
+        t.text,
+    );
     let desc_galley = description.map(|d| {
         ui.painter()
             .layout_no_wrap(d.to_owned(), TextStyle::Small.resolve(ui.style()), t.text_3)
@@ -664,8 +683,11 @@ pub fn checkbox(
     ui.painter()
         .rect_filled(box_rect, t.rounding_xs(), lerp_color(t.card, t.accent, on));
     let border = lerp_color(lerp_color(t.border, t.border_strong, hv), t.accent, on);
-    ui.painter()
-        .rect_stroke(box_rect.shrink(0.5), t.rounding_xs(), Stroke::new(1.0, border));
+    ui.painter().rect_stroke(
+        box_rect.shrink(0.5),
+        t.rounding_xs(),
+        Stroke::new(1.0, border),
+    );
     if on > 0.01 {
         let c = box_rect.center();
         let stroke = Stroke::new(2.0, t.accent_ink.gamma_multiply(on));
@@ -710,8 +732,11 @@ pub fn segmented(
 ) -> Response {
     let (rect, mut response) = ui.allocate_exact_size(vec2(width, 34.0), Sense::hover());
     ui.painter().rect_filled(rect, t.rounding_sm(), t.card);
-    ui.painter()
-        .rect_stroke(rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, t.border));
+    ui.painter().rect_stroke(
+        rect.shrink(0.5),
+        t.rounding_sm(),
+        Stroke::new(1.0, t.border),
+    );
 
     let n = options.len().max(1);
     let seg_w = rect.width() / n as f32;
@@ -825,7 +850,11 @@ pub fn select_option(ui: &mut Ui, t: &Tokens, label: &str, selected: bool) -> bo
         egui::text::TextFormat {
             font_id: icons::font(13.0),
             // Transparent (not omitted) so selected and unselected rows align.
-            color: if selected { t.accent } else { Color32::TRANSPARENT },
+            color: if selected {
+                t.accent
+            } else {
+                Color32::TRANSPARENT
+            },
             ..Default::default()
         },
     );
@@ -941,8 +970,7 @@ pub fn collapsing(
     let id = egui::Id::new(id_source).with("tokito_ui_collapsing");
     let mut open = ui.data(|d| d.get_temp::<bool>(id).unwrap_or(false));
 
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), 28.0), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 28.0), Sense::click());
     if response.clicked() {
         open = !open;
         ui.data_mut(|d| d.insert_temp(id, open));
