@@ -1356,3 +1356,110 @@ pub fn toast_overlay(ctx: &egui::Context, t: &Tokens, stack: &mut ToastStack) {
             });
         });
 }
+
+// ---------------------------------------------------------------------------
+// chip
+// ---------------------------------------------------------------------------
+
+/// A small toggleable pill — like [`badge`], but clickable and with a
+/// selected state.
+///
+/// Used for filter chips, tag pills, and any narrow on/off control where a
+/// full [`toggle`] is too heavy. Returns `true` on the frame the chip is
+/// clicked; the caller flips its own `selected` state.
+pub fn chip(ui: &mut Ui, t: &Tokens, label: &str, selected: bool) -> bool {
+    let (fill, stroke_color, ink) = if selected {
+        (t.accent_soft, t.accent, t.text)
+    } else {
+        (t.card, t.border, t.text_2)
+    };
+    let resp = ui.add(
+        egui::Button::new(RichText::new(label).size(11.0).color(ink))
+            .fill(fill)
+            .stroke(Stroke::new(1.0, stroke_color))
+            .rounding(t.rounding_sm())
+            .min_size(vec2(0.0, 28.0)),
+    );
+    resp.clicked()
+}
+
+// ---------------------------------------------------------------------------
+// content_card
+// ---------------------------------------------------------------------------
+
+/// A bordered, padded panel for grouping content — the typical "section in a
+/// settings page" or "block in a side panel" container.
+///
+/// Unlike [`card`], `content_card` is **not** click-able and **not** fixed
+/// size: it grows to fit `add_contents`. Width is whatever the parent layout
+/// gives it. Padding is `space_4` on all sides.
+pub fn content_card(ui: &mut Ui, t: &Tokens, add_contents: impl FnOnce(&mut Ui)) {
+    egui::Frame::none()
+        .fill(t.card)
+        .rounding(t.rounding_md())
+        .inner_margin(egui::Margin::same(t.space_4))
+        .stroke(Stroke::new(1.0, t.border))
+        .show(ui, |ui| {
+            add_contents(ui);
+        });
+}
+
+// ---------------------------------------------------------------------------
+// inspector_row
+// ---------------------------------------------------------------------------
+
+/// A label-on-the-left, value-on-the-right key/value row.
+///
+/// Used in inspector / property panels and detail cards. The label is muted
+/// (`text_2`), the value uses the primary `text` colour. Both are small.
+pub fn inspector_row(ui: &mut Ui, t: &Tokens, label: &str, value: impl Into<String>) {
+    ui.horizontal(|ui| {
+        ui.label(RichText::new(label).small().color(t.text_2));
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.label(RichText::new(value.into()).small().color(t.text));
+        });
+    });
+    ui.add_space(2.0);
+}
+
+// ---------------------------------------------------------------------------
+// list_section_label
+// ---------------------------------------------------------------------------
+
+/// A small "Symbols (24)" style label that groups items in a list / side
+/// panel.
+///
+/// Smaller and lighter than [`section_header`] — meant for use within a
+/// dense scrollable list, not as a top-of-page heading. The count appears
+/// in parentheses after the label.
+pub fn list_section_label(ui: &mut Ui, t: &Tokens, label: &str, count: usize) {
+    ui.add_space(4.0);
+    ui.label(
+        RichText::new(format!("{label} ({count})"))
+            .small()
+            .strong()
+            .color(t.text_2),
+    );
+    ui.add_space(4.0);
+}
+
+// ---------------------------------------------------------------------------
+// empty_state
+// ---------------------------------------------------------------------------
+
+/// A muted "nothing to show here" placeholder card.
+///
+/// Used as the body content of a panel that would otherwise be empty
+/// (no search results, no items in the list, no recent files). Centred
+/// text, soft card background, no border.
+pub fn empty_state(ui: &mut Ui, t: &Tokens, message: &str) {
+    egui::Frame::none()
+        .fill(t.card)
+        .rounding(t.rounding_sm())
+        .inner_margin(egui::Margin::same(14.0))
+        .show(ui, |ui| {
+            ui.centered_and_justified(|ui| {
+                ui.label(RichText::new(message).size(12.0).color(t.text_2));
+            });
+        });
+}
