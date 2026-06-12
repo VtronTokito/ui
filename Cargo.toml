@@ -13,6 +13,7 @@ categories = ["gui", "rendering::gui"]
 [dependencies]
 egui = "0.29"
 egui-phosphor = { version = "0.7", default-features = false, features = ["regular"] }
+egui_extras = "0.29"
 
 [dev-dependencies]
 eframe = "0.29"
