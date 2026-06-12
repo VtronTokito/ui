@@ -86,8 +86,13 @@ It is `#[non_exhaustive]` — new fields can be added without breaking you.
 Groups: surfaces (`bg`, `bg_chrome`, `card`, `card_hover`), borders
 (`border`, `border_soft`, `border_strong`), text (`text`, `text_2`, `text_3`,
 `text_disabled`), accents (`accent`, `accent_ink`, `accent_soft`, `accent_2`,
-`accent_2_soft`), status (`danger`, `warning`, `success`), and metrics
-(`radius_*`, `space_1..5`).
+`accent_2_soft`), status (`danger`, `warning`, `success`), metrics
+(`radius_*`, `space_1..5`), and a **schematic palette** for CAD canvas use
+(`canvas_bg`, `canvas_grid_minor`, `canvas_grid_major`, `canvas_frame`,
+`sym_ink`, `sym_body_fill`, `sym_ink_hover`, `sym_ink_selected`,
+`sym_outline`, `sym_sel_ring`, `wire`, `wire_highlight`, `wire_selected`,
+`label_ink`, `refdes_ink`, `pin_ink`, `pin_hot`, `selection`, `preview_bg`).
+Non-canvas consumers can ignore the schematic fields.
 
 ## Components
 
@@ -119,7 +124,7 @@ All live in `tokito_ui::components` (aliased `c` above). Each takes
 | `select_option` | `select_option(ui, t, label, selected) -> bool` | One option row inside a `select` popup. |
 | `banner` | `banner(ui, t, kind, glyph, title, body) -> Response` | A status callout — `BannerKind::Success` / `Danger` / `Warning` / `Info`. |
 | `collapsing` | `collapsing(ui, t, id_source, label, \|ui\| …)` | A collapsible "Advanced options" disclosure section. |
-| `cad_tool_button` | `cad_tool_button(ui, t, glyph, side, selected, tooltip) -> Response` | A square, toggleable CAD tool-rail button — accent border + soft fill when selected. |
+| `cad_tool_button` + `paint_phosphor_glyph` | `cad_tool_button(ui, t, side, selected, tooltip, \|p, r, ink\| …)` | A square, toggleable CAD tool-rail button. Caller paints the icon via the closure — pass `paint_phosphor_glyph(GLYPH)` for Phosphor, or paint hand-drawn schematic strokes. |
 | `data_table` + `sortable_header` | `data_table(ui, t, id, headers, cols, &mut SortState, n, h, \|row, i\| …)` | A scrollable [`egui_extras::TableBuilder`] table with click-to-sort column headers. |
 | `toast_overlay` + `ToastStack` | `toast_overlay(ctx, t, &mut ToastStack)` | Transient bottom-right notifications. `ToastStack` is the owned queue; push from anywhere, paint once per frame. |
 | `chip` | `chip(ui, t, label, selected) -> bool` | A small toggleable pill — filter chip / tag. Returns `true` on click. |
