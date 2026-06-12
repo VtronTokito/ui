@@ -1055,20 +1055,28 @@ fn lighten(c: Color32, amount: f32) -> Color32 {
 /// A square, toggleable CAD-tool-rail button.
 ///
 /// Used for the left-side tool rail in a schematic / PCB editor (select,
-/// wire, label, bus, etc.). `glyph` is a Phosphor constant; `side` is the
-/// width and height; `selected` paints the active state (accent border +
-/// soft accent fill); `tooltip` shows on hover.
+/// wire, label, bus, etc.). `side` is the width and height; `selected` paints
+/// the active state (accent border + soft accent fill); `tooltip` shows on
+/// hover.
 ///
-/// Hover eases an underlay fill in; the icon ink is `accent` when selected,
-/// `text` otherwise.
-pub fn cad_tool_button(
+/// `paint_icon` is invoked with the button's `Painter`, the inner `Rect`, and
+/// the current ink colour — the caller decides what symbol to draw (Phosphor
+/// glyph, hand-drawn schematic strokes, an image, whatever). For the common
+/// Phosphor case, use [`paint_phosphor_glyph`] as the closure.
+///
+/// Hover eases an underlay fill in; the ink is `accent` when selected,
+/// `text` otherwise (interpolated with `text_2` on hover).
+pub fn cad_tool_button<F>(
     ui: &mut Ui,
     t: &Tokens,
-    glyph: &str,
     side: f32,
     selected: bool,
     tooltip: &str,
-) -> Response {
+    paint_icon: F,
+) -> Response
+where
+    F: FnOnce(&egui::Painter, Rect, Color32),
+{
     let (rect, mut response) = ui.allocate_exact_size(Vec2::splat(side), Sense::click());
 
     let factor = hover_t(ui, response.id, response.hovered());
@@ -1093,19 +1101,33 @@ pub fn cad_tool_button(
     } else {
         lerp_color(t.text_2, t.text, factor)
     };
-    let glyph_size = (side * 0.5).clamp(14.0, 24.0);
-    painter.text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        glyph,
-        icons::font(glyph_size),
-        ink,
-    );
+    paint_icon(painter, rect, ink);
 
     if !tooltip.is_empty() {
         response = response.on_hover_text(tooltip);
     }
     response
+}
+
+/// Helper closure for [`cad_tool_button`] that paints a centred Phosphor
+/// glyph at a sensible size for the button.
+///
+/// Usage:
+/// ```ignore
+/// cad_tool_button(ui, &t, 38.0, selected, "Wire", paint_phosphor_glyph(icons::ph::PEN_NIB))
+/// ```
+pub fn paint_phosphor_glyph(glyph: &'static str) -> impl FnOnce(&egui::Painter, Rect, Color32) {
+    move |painter, rect, ink| {
+        let side = rect.width().min(rect.height());
+        let glyph_size = (side * 0.5).clamp(14.0, 24.0);
+        painter.text(
+            rect.center(),
+            egui::Align2::CENTER_CENTER,
+            glyph,
+            icons::font(glyph_size),
+            ink,
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

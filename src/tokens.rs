@@ -81,6 +81,59 @@ pub struct Tokens {
     pub space_3: f32,
     pub space_4: f32,
     pub space_5: f32,
+
+    // -----------------------------------------------------------------------
+    // Schematic palette
+    // -----------------------------------------------------------------------
+    //
+    // These describe colours for a schematic / CAD-style canvas. They live
+    // here (in the shared design layer) so a consumer's editor canvas pulls
+    // from the same `Tokens` value that drives its chrome — one token source.
+    //
+    // A non-canvas consumer can ignore these fields; the presets below pick
+    // reasonable defaults.
+    /// Schematic sheet background.
+    pub canvas_bg: Color32,
+    /// Minor grid line — quiet, for the dense grid step.
+    pub canvas_grid_minor: Color32,
+    /// Major grid line — stronger, every Nth grid step.
+    pub canvas_grid_major: Color32,
+    /// Sheet frame border / title block strokes.
+    pub canvas_frame: Color32,
+
+    /// Symbol body ink — schematic outlines at rest.
+    pub sym_ink: Color32,
+    /// Symbol body fill — pale KiCad-style component body.
+    pub sym_body_fill: Color32,
+    /// Symbol body ink when hovered.
+    pub sym_ink_hover: Color32,
+    /// Symbol body ink when selected.
+    pub sym_ink_selected: Color32,
+    /// Subtle outline ring (anti-aliasing halo, soft separators).
+    pub sym_outline: Color32,
+    /// Selection ring around the symbol bounding box.
+    pub sym_sel_ring: Color32,
+
+    /// Wire — default ink.
+    pub wire: Color32,
+    /// Wire — highlighted (same net under cursor / search match).
+    pub wire_highlight: Color32,
+    /// Wire — selected.
+    pub wire_selected: Color32,
+
+    /// Net label ink.
+    pub label_ink: Color32,
+    /// Reference designator ink.
+    pub refdes_ink: Color32,
+    /// Pin name / number ink.
+    pub pin_ink: Color32,
+    /// Pin "hot" ink — active connection point, current drag.
+    pub pin_hot: Color32,
+
+    /// Marquee / multi-select fill.
+    pub selection: Color32,
+    /// Preview backdrop (place-tool ghost, drag preview).
+    pub preview_bg: Color32,
 }
 
 impl Tokens {
@@ -116,6 +169,27 @@ impl Tokens {
             space_3: 12.0,
             space_4: 16.0,
             space_5: 24.0,
+            // Schematic palette — dark variant. Cool teal-ink schematic
+            // against a deep slate sheet, warm orange selection ring.
+            canvas_bg: Color32::from_rgb(0x14, 0x16, 0x1c),
+            canvas_grid_minor: Color32::from_rgba_unmultiplied(0x60, 0x64, 0x70, 0x1c),
+            canvas_grid_major: Color32::from_rgba_unmultiplied(0x7a, 0x80, 0x8c, 0x34),
+            canvas_frame: Color32::from_rgb(0x4a, 0x4f, 0x5a),
+            sym_ink: Color32::from_rgb(0xe6, 0xe8, 0xec),
+            sym_body_fill: Color32::from_rgb(0x22, 0x24, 0x2a),
+            sym_ink_hover: Color32::from_rgb(0x2d, 0xd4, 0xbf),
+            sym_ink_selected: Color32::from_rgb(0xff, 0xff, 0xff),
+            sym_outline: Color32::from_rgb(0x2a, 0x2c, 0x32),
+            sym_sel_ring: Color32::from_rgb(0xe0, 0x78, 0x20),
+            wire: Color32::from_rgb(0x9d, 0xc7, 0xff),
+            wire_highlight: Color32::from_rgb(0x2d, 0xd4, 0xbf),
+            wire_selected: Color32::from_rgb(0xe0, 0x78, 0x20),
+            label_ink: Color32::from_rgb(0xb9, 0xc7, 0xdc),
+            refdes_ink: Color32::from_rgb(0x9a, 0x9d, 0xa7),
+            pin_ink: Color32::from_rgb(0xa8, 0xb0, 0xbe),
+            pin_hot: Color32::from_rgb(0xe0, 0x78, 0x20),
+            selection: Color32::from_rgba_unmultiplied(0xe0, 0x78, 0x20, 0x33),
+            preview_bg: Color32::from_rgb(0x1a, 0x1c, 0x22),
         }
     }
 
@@ -151,6 +225,27 @@ impl Tokens {
             space_3: 12.0,
             space_4: 16.0,
             space_5: 24.0,
+            // Schematic palette — light variant. Schematic-ink (near-black)
+            // on a soft slate sheet; same warm orange selection.
+            canvas_bg: Color32::from_rgb(0xf4, 0xf7, 0xfa),
+            canvas_grid_minor: Color32::from_rgba_unmultiplied(0x8c, 0x94, 0x9e, 0x1c),
+            canvas_grid_major: Color32::from_rgba_unmultiplied(0x78, 0x80, 0x8c, 0x34),
+            canvas_frame: Color32::from_rgb(0xa8, 0xae, 0xb8),
+            sym_ink: Color32::from_rgb(0x1c, 0x20, 0x26),
+            sym_body_fill: Color32::from_rgb(0xff, 0xfb, 0xde),
+            sym_ink_hover: Color32::from_rgb(0x14, 0x34, 0x5c),
+            sym_ink_selected: Color32::from_rgb(0x10, 0x14, 0x1a),
+            sym_outline: Color32::from_rgb(0xfa, 0xfb, 0xfc),
+            sym_sel_ring: Color32::from_rgb(0xe0, 0x78, 0x20),
+            wire: Color32::from_rgb(0x30, 0x5e, 0x84),
+            wire_highlight: Color32::from_rgb(0x14, 0x84, 0x76),
+            wire_selected: Color32::from_rgb(0xe0, 0x78, 0x20),
+            label_ink: Color32::from_rgb(0x28, 0x48, 0x6c),
+            refdes_ink: Color32::from_rgb(0x30, 0x36, 0x3e),
+            pin_ink: Color32::from_rgb(0x48, 0x58, 0x6c),
+            pin_hot: Color32::from_rgb(0xe0, 0x78, 0x20),
+            selection: Color32::from_rgba_unmultiplied(0xe0, 0x78, 0x20, 0x33),
+            preview_bg: Color32::from_rgb(0xf4, 0xf5, 0xf7),
         }
     }
 
