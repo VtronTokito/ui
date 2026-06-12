@@ -25,8 +25,12 @@ src/
 ```
 
 **Components** (`components.rs`): `card`, `new_tile`, `icon_button`,
-`text_button`, `link`, `list_row`, `text_input`, `search_field`, `toggle`,
-`modal`, `page_header`, `section_header`.
+`text_button`, `link`, `badge`, `menu_button`, `menu_item`, `list_row`,
+`text_input`, `search_field`, `secret_input`, `toggle`, `modal`,
+`page_header`, `section_header`, `nav_item`, `checkbox`, `segmented`,
+`select`, `select_option`, `banner`, `collapsing`, `cad_tool_button`,
+`data_table` (+ `SortState`, `sortable_header`), `toast_overlay`
+(+ `ToastStack`).
 
 ## Rules — keep these true
 
@@ -85,4 +89,4 @@ out of these primitives.
 
 - No keyboard focus rings / `widget_info` accessibility yet — components are
   painted rectangles, not screen-reader-navigable. Highest-value next step.
-- Missing components a real app will want: tooltip, tabs, toast, checkbox.
+- Missing components a real app will want: tooltip, tabs.

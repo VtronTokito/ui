@@ -1047,3 +1047,312 @@ fn paint_dashed_rect(
 fn lighten(c: Color32, amount: f32) -> Color32 {
     lerp_color(c, Color32::WHITE, amount)
 }
+
+// ---------------------------------------------------------------------------
+// cad_tool_button
+// ---------------------------------------------------------------------------
+
+/// A square, toggleable CAD-tool-rail button.
+///
+/// Used for the left-side tool rail in a schematic / PCB editor (select,
+/// wire, label, bus, etc.). `glyph` is a Phosphor constant; `side` is the
+/// width and height; `selected` paints the active state (accent border +
+/// soft accent fill); `tooltip` shows on hover.
+///
+/// Hover eases an underlay fill in; the icon ink is `accent` when selected,
+/// `text` otherwise.
+pub fn cad_tool_button(
+    ui: &mut Ui,
+    t: &Tokens,
+    glyph: &str,
+    side: f32,
+    selected: bool,
+    tooltip: &str,
+) -> Response {
+    let (rect, mut response) = ui.allocate_exact_size(Vec2::splat(side), Sense::click());
+
+    let factor = hover_t(ui, response.id, response.hovered());
+    let painter = ui.painter();
+
+    let (fill, stroke) = if selected {
+        let stroke = Stroke::new(1.2, t.accent);
+        let fill = lerp_color(t.accent_soft, lighten(t.accent_soft, 0.10), factor);
+        (fill, stroke)
+    } else {
+        let fill = lerp_color(t.card, t.card_hover, factor);
+        let stroke_color = lerp_color(t.border, t.border_strong, factor);
+        let stroke = Stroke::new(1.0, stroke_color);
+        (fill, stroke)
+    };
+
+    painter.rect_filled(rect, t.rounding_sm(), fill);
+    painter.rect_stroke(rect, t.rounding_sm(), stroke);
+
+    let ink = if selected {
+        t.accent
+    } else {
+        lerp_color(t.text_2, t.text, factor)
+    };
+    let glyph_size = (side * 0.5).clamp(14.0, 24.0);
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        glyph,
+        icons::font(glyph_size),
+        ink,
+    );
+
+    if !tooltip.is_empty() {
+        response = response.on_hover_text(tooltip);
+    }
+    response
+}
+
+// ---------------------------------------------------------------------------
+// table
+// ---------------------------------------------------------------------------
+
+/// Sort direction for a [`SortState`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SortDir {
+    /// Unsorted — the natural row order.
+    #[default]
+    None,
+    /// Ascending — `A..Z`, `0..9`, oldest-first.
+    Asc,
+    /// Descending — `Z..A`, `9..0`, newest-first.
+    Desc,
+}
+
+impl SortDir {
+    fn arrow(self) -> &'static str {
+        match self {
+            SortDir::None => "",
+            SortDir::Asc => " ▲",
+            SortDir::Desc => " ▼",
+        }
+    }
+}
+
+/// Which column is currently the sort key and in what direction.
+///
+/// Stored by the consumer (e.g. one [`SortState`] per visible table). Drive
+/// from [`sortable_header`] click responses, then read in your row-building
+/// loop to decide order.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SortState {
+    pub column: usize,
+    pub dir: SortDir,
+}
+
+impl SortState {
+    /// Click handler for header column `col`. Cycles
+    /// `None → Asc → Desc → None`, or resets to `Asc` when switching columns.
+    pub fn toggle(&mut self, col: usize) {
+        if self.column == col {
+            self.dir = match self.dir {
+                SortDir::None => SortDir::Asc,
+                SortDir::Asc => SortDir::Desc,
+                SortDir::Desc => SortDir::None,
+            };
+        } else {
+            self.column = col;
+            self.dir = SortDir::Asc;
+        }
+    }
+}
+
+/// A clickable column-header label that updates a [`SortState`].
+///
+/// Shows an arrow suffix when this column is the active sort key. Returns
+/// `true` on the frame the label is clicked (caller uses this only if it
+/// wants side-effects beyond `state.toggle(col)`).
+pub fn sortable_header(
+    ui: &mut Ui,
+    t: &Tokens,
+    label: &str,
+    col: usize,
+    state: &mut SortState,
+) -> bool {
+    let active = state.column == col && state.dir != SortDir::None;
+    let arrow = if active { state.dir.arrow() } else { "" };
+    let text = RichText::new(format!("{label}{arrow}"))
+        .strong()
+        .color(if active { t.text } else { t.text_2 });
+
+    let resp = ui.add(egui::Label::new(text).sense(Sense::click()));
+    let clicked = resp.clicked();
+    if clicked {
+        state.toggle(col);
+    }
+    clicked
+}
+
+/// A scrollable table with [`sortable_header`]-driven sortable columns.
+///
+/// `id_source` salts the inner scroll area's id so multiple tables on one
+/// screen don't collide. `headers` is one label per column. `row_height` is
+/// the per-row height for [`egui_extras::TableBuilder`]. `cols` describes the
+/// column widths — pass [`egui_extras::Column`] values.
+///
+/// The `build_row` closure paints one cell per column for a given row index.
+/// Callers usually pre-sort their data by `state` *before* calling this, then
+/// index into the sorted vector inside `build_row`.
+pub fn data_table<F>(
+    ui: &mut Ui,
+    t: &Tokens,
+    id_source: impl Hash,
+    headers: &[&str],
+    cols: Vec<egui_extras::Column>,
+    state: &mut SortState,
+    row_count: usize,
+    row_height: f32,
+    mut build_row: F,
+) where
+    F: FnMut(&mut egui_extras::TableRow<'_, '_>, usize),
+{
+    let id = ui.make_persistent_id(id_source);
+    let mut builder = egui_extras::TableBuilder::new(ui)
+        .id_salt(id)
+        .striped(true)
+        .resizable(false)
+        .cell_layout(Layout::left_to_right(Align::Center));
+    for c in cols {
+        builder = builder.column(c);
+    }
+    builder
+        .header(22.0, |mut header| {
+            for (col, label) in headers.iter().enumerate() {
+                header.col(|ui| {
+                    sortable_header(ui, t, label, col, state);
+                });
+            }
+        })
+        .body(|body| {
+            body.rows(row_height, row_count, |row| {
+                let idx = row.index();
+                let mut row = row;
+                build_row(&mut row, idx);
+            });
+        });
+}
+
+// ---------------------------------------------------------------------------
+// toast
+// ---------------------------------------------------------------------------
+
+/// Visual + semantic kind of a [`Toast`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ToastKind {
+    #[default]
+    Info,
+    Success,
+    Warning,
+    Error,
+}
+
+/// One transient notification message.
+#[derive(Debug, Clone)]
+pub struct Toast {
+    /// What the user sees.
+    pub message: String,
+    /// Visual class.
+    pub kind: ToastKind,
+    /// When this toast expires. Defaults to ~4 s after `push`.
+    pub until: std::time::Instant,
+}
+
+/// A queue of [`Toast`]s, drained by [`toast_overlay`].
+///
+/// Holders own this struct in their app state and call `push` from anywhere
+/// in the update loop; once per frame they hand it to [`toast_overlay`] to
+/// paint. Expired entries are pruned automatically.
+#[derive(Debug, Default, Clone)]
+pub struct ToastStack {
+    items: Vec<Toast>,
+}
+
+impl ToastStack {
+    /// Default visible time per toast — currently 4 seconds.
+    pub const DEFAULT_TTL: std::time::Duration = std::time::Duration::from_secs(4);
+
+    /// Push a new toast with `kind` and the default 4 s TTL.
+    pub fn push(&mut self, message: impl Into<String>, kind: ToastKind) {
+        self.items.push(Toast {
+            message: message.into(),
+            kind,
+            until: std::time::Instant::now() + Self::DEFAULT_TTL,
+        });
+    }
+
+    /// Push an [`ToastKind::Info`] toast.
+    pub fn push_info(&mut self, message: impl Into<String>) {
+        self.push(message, ToastKind::Info);
+    }
+
+    /// Push a [`ToastKind::Success`] toast.
+    pub fn push_success(&mut self, message: impl Into<String>) {
+        self.push(message, ToastKind::Success);
+    }
+
+    /// Push a [`ToastKind::Warning`] toast.
+    pub fn push_warning(&mut self, message: impl Into<String>) {
+        self.push(message, ToastKind::Warning);
+    }
+
+    /// Push a [`ToastKind::Error`] toast.
+    pub fn push_error(&mut self, message: impl Into<String>) {
+        self.push(message, ToastKind::Error);
+    }
+
+    /// True when there are no live (non-expired) toasts.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    fn prune(&mut self) {
+        let now = std::time::Instant::now();
+        self.items.retain(|t| t.until > now);
+    }
+}
+
+/// Paint any live toasts anchored to the bottom-right of the egui screen.
+///
+/// Call once per frame. The stack is mutated in place: expired toasts are
+/// pruned before painting, and egui is asked to repaint while a toast is
+/// still live so the auto-dismissal happens on time.
+pub fn toast_overlay(ctx: &egui::Context, t: &Tokens, stack: &mut ToastStack) {
+    stack.prune();
+    if stack.is_empty() {
+        return;
+    }
+
+    // Repaint while we still have live toasts so they vanish on time even
+    // when nothing else moves on screen.
+    ctx.request_repaint_after(std::time::Duration::from_millis(100));
+
+    egui::Area::new(egui::Id::new("tokito_ui_toasts"))
+        .anchor(egui::Align2::RIGHT_BOTTOM, [-16.0, -16.0])
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                // Newest-first: most-recent push appears on top.
+                for toast in stack.items.iter().rev() {
+                    let (border, ink) = match toast.kind {
+                        ToastKind::Info => (t.accent, t.text),
+                        ToastKind::Success => (t.success, t.success),
+                        ToastKind::Warning => (t.warning, t.warning),
+                        ToastKind::Error => (t.danger, t.danger),
+                    };
+                    egui::Frame::popup(ui.style())
+                        .fill(t.card)
+                        .stroke(Stroke::new(1.0, border))
+                        .rounding(t.rounding_md())
+                        .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(&toast.message).color(ink));
+                        });
+                    ui.add_space(t.space_2);
+                }
+            });
+        });
+}

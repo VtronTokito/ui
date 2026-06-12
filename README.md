@@ -119,6 +119,9 @@ All live in `tokito_ui::components` (aliased `c` above). Each takes
 | `select_option` | `select_option(ui, t, label, selected) -> bool` | One option row inside a `select` popup. |
 | `banner` | `banner(ui, t, kind, glyph, title, body) -> Response` | A status callout — `BannerKind::Success` / `Danger` / `Warning` / `Info`. |
 | `collapsing` | `collapsing(ui, t, id_source, label, \|ui\| …)` | A collapsible "Advanced options" disclosure section. |
+| `cad_tool_button` | `cad_tool_button(ui, t, glyph, side, selected, tooltip) -> Response` | A square, toggleable CAD tool-rail button — accent border + soft fill when selected. |
+| `data_table` + `sortable_header` | `data_table(ui, t, id, headers, cols, &mut SortState, n, h, \|row, i\| …)` | A scrollable [`egui_extras::TableBuilder`] table with click-to-sort column headers. |
+| `toast_overlay` + `ToastStack` | `toast_overlay(ctx, t, &mut ToastStack)` | Transient bottom-right notifications. `ToastStack` is the owned queue; push from anywhere, paint once per frame. |
 
 ### Icons
 
