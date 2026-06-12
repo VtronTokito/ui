@@ -30,7 +30,8 @@ src/
 `page_header`, `section_header`, `nav_item`, `checkbox`, `segmented`,
 `select`, `select_option`, `banner`, `collapsing`, `cad_tool_button`,
 `data_table` (+ `SortState`, `sortable_header`), `toast_overlay`
-(+ `ToastStack`).
+(+ `ToastStack`), `chip`, `content_card`, `inspector_row`,
+`list_section_label`, `empty_state`.
 
 ## Rules — keep these true
 

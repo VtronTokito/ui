@@ -122,6 +122,11 @@ All live in `tokito_ui::components` (aliased `c` above). Each takes
 | `cad_tool_button` | `cad_tool_button(ui, t, glyph, side, selected, tooltip) -> Response` | A square, toggleable CAD tool-rail button — accent border + soft fill when selected. |
 | `data_table` + `sortable_header` | `data_table(ui, t, id, headers, cols, &mut SortState, n, h, \|row, i\| …)` | A scrollable [`egui_extras::TableBuilder`] table with click-to-sort column headers. |
 | `toast_overlay` + `ToastStack` | `toast_overlay(ctx, t, &mut ToastStack)` | Transient bottom-right notifications. `ToastStack` is the owned queue; push from anywhere, paint once per frame. |
+| `chip` | `chip(ui, t, label, selected) -> bool` | A small toggleable pill — filter chip / tag. Returns `true` on click. |
+| `content_card` | `content_card(ui, t, \|ui\| …)` | A bordered, padded panel for grouping content. Grows to fit; not clickable. |
+| `inspector_row` | `inspector_row(ui, t, label, value)` | Label-on-left, value-on-right key/value row for inspector / property panels. |
+| `list_section_label` | `list_section_label(ui, t, label, count)` | "Symbols (24)" style group label for dense side-panel lists. |
+| `empty_state` | `empty_state(ui, t, message)` | Centred "nothing here" placeholder card. |
 
 ### Icons
 
