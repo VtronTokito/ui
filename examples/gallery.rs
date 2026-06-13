@@ -294,50 +294,45 @@ impl Gallery {
                 egui::vec2(220.0, 260.0),
                 egui::Layout::top_down(egui::Align::Min).with_cross_justify(true),
                 |ui| {
-                    c::conversation_sidebar(
-                        ui,
-                        t,
-                        |ui| {
-                            c::thread_row(
-                                ui,
-                                t,
-                                "Power supply",
-                                "Let's switch the LDO to AMS1117…",
-                                "2m",
-                                true,
-                                false,
-                            );
-                            c::thread_row(
-                                ui,
-                                t,
-                                "USB-C subsystem",
-                                "Add CC pull-downs and the…",
-                                "3h",
-                                false,
-                                false,
-                            );
-                            c::thread_row(
-                                ui,
-                                t,
-                                "Bootstrap caps",
-                                "What size for the buck stage?",
-                                "yesterday",
-                                false,
-                                false,
-                            );
-                        },
-                        |ui| {
-                            c::thread_row(
-                                ui,
-                                t,
-                                "Workshop",
-                                "Cross-design notes & one-offs",
-                                "",
-                                false,
-                                true,
-                            );
-                        },
-                    );
+                    c::conversation_sidebar(ui, t, |ui| {
+                        c::thread_row(
+                            ui,
+                            t,
+                            "Power supply",
+                            "Let's switch the LDO to AMS1117…",
+                            "2m",
+                            true,
+                            false,
+                        );
+                        c::thread_row(
+                            ui,
+                            t,
+                            "USB-C subsystem",
+                            "Add CC pull-downs and the…",
+                            "3h",
+                            false,
+                            false,
+                        );
+                        c::thread_row(
+                            ui,
+                            t,
+                            "Bootstrap caps",
+                            "What size for the buck stage?",
+                            "yesterday",
+                            false,
+                            false,
+                        );
+                        c::sidebar_divider(ui, t);
+                        c::thread_row(
+                            ui,
+                            t,
+                            "Workshop",
+                            "Cross-design notes & one-offs",
+                            "",
+                            false,
+                            true,
+                        );
+                    });
                 },
             );
             ui.add_space(12.0);

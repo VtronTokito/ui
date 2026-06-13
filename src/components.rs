@@ -2196,15 +2196,13 @@ pub enum SidebarAction {
 
 /// The Chat-tab conversation sidebar.
 ///
-/// Chrome only — the caller paints the actual rows by calling [`thread_row`]
-/// inside `body_threads` (design-scoped threads, sorted by recency) and
-/// `body_workshop` (the pinned global Workshop entry). A hairline divider
-/// separates the two regions.
+/// Chrome only — the caller paints the rows inside `body` by calling
+/// [`thread_row`]. The expected layout is: design-scoped threads, then
+/// [`sidebar_divider`], then the pinned Workshop row.
 pub fn conversation_sidebar(
     ui: &mut Ui,
     t: &Tokens,
-    body_threads: impl FnOnce(&mut Ui),
-    body_workshop: impl FnOnce(&mut Ui),
+    body: impl FnOnce(&mut Ui),
 ) -> Option<SidebarAction> {
     let mut out = None;
     egui::Frame::none()
@@ -2212,7 +2210,6 @@ pub fn conversation_sidebar(
         .stroke(Stroke::new(1.0, t.border_soft))
         .inner_margin(egui::Margin::same(t.space_2))
         .show(ui, |ui| {
-            // Header.
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("Conversations")
@@ -2231,19 +2228,20 @@ pub fn conversation_sidebar(
             });
             ui.add_space(t.space_2);
 
-            // Design-scoped threads.
             egui::ScrollArea::vertical()
                 .id_salt("sidebar_threads")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    body_threads(ui);
+                    body(ui);
                 });
-
-            // Divider + Workshop slot pinned at the bottom.
-            ui.add_space(t.space_2);
-            ui.separator();
-            ui.add_space(t.space_1);
-            body_workshop(ui);
         });
     out
+}
+
+/// Hairline divider intended for use inside the [`conversation_sidebar`]
+/// body, between the design-scoped threads and the pinned Workshop row.
+pub fn sidebar_divider(ui: &mut Ui, t: &Tokens) {
+    ui.add_space(t.space_2);
+    ui.separator();
+    ui.add_space(t.space_1);
 }
