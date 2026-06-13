@@ -35,6 +35,13 @@ struct Gallery {
     search: String,
     project_name: String,
     notify: bool,
+    // Chat-surface preview state.
+    header_project_name: String,
+    header_editing: bool,
+    top_tab_selected: usize,
+    composer: tokito_ui::components::ChatComposerState,
+    rail_composer: tokito_ui::components::ChatComposerState,
+    rail_state: tokito_ui::components::AiHelperRailState,
     /// When set, screenshot to this path and quit.
     shot_path: Option<String>,
     frame: u32,
@@ -47,6 +54,12 @@ impl Gallery {
             search: String::new(),
             project_name: "Arduino Shield".to_string(),
             notify: true,
+            header_project_name: "USB-C PD Breakout".to_string(),
+            header_editing: false,
+            top_tab_selected: 0,
+            composer: tokito_ui::components::ChatComposerState::default(),
+            rail_composer: tokito_ui::components::ChatComposerState::default(),
+            rail_state: tokito_ui::components::AiHelperRailState::Expanded,
             shot_path,
             frame: 0,
         }
@@ -216,5 +229,212 @@ impl Gallery {
             let job = icons::icon_text(icon, 14.0, label, 13.0, t.text);
             c::list_row(ui, t, job, i == 0);
         }
+        ui.add_space(30.0);
+
+        // ---- chat shell preview ----
+        c::section_header(ui, t, "Chat shell", None);
+        ui.add_space(10.0);
+
+        // App header.
+        c::app_header(
+            ui,
+            t,
+            icons::ph::ARROW_UP,
+            "Tokito",
+            &mut self.header_project_name,
+            &mut self.header_editing,
+        );
+        ui.add_space(2.0);
+
+        // Top tab bar.
+        let tabs = [
+            c::TabItem::Tab {
+                icon: icons::ph::CHAT_CIRCLE,
+                label: "Chat",
+            },
+            c::TabItem::Tab {
+                icon: icons::ph::FILE_TEXT,
+                label: "Plan",
+            },
+            c::TabItem::Tab {
+                icon: icons::ph::FOLDER,
+                label: "Artifacts",
+            },
+            c::TabItem::Divider,
+            c::TabItem::Tab {
+                icon: icons::ph::TREE_STRUCTURE,
+                label: "Schematic",
+            },
+            c::TabItem::Tab {
+                icon: icons::ph::CPU,
+                label: "PCB",
+            },
+            c::TabItem::Tab {
+                icon: icons::ph::SHOPPING_CART,
+                label: "BOM",
+            },
+            c::TabItem::Tab {
+                icon: icons::ph::DATABASE,
+                label: "Research",
+            },
+            c::TabItem::Tab {
+                icon: icons::ph::DOWNLOAD_SIMPLE,
+                label: "Export",
+            },
+        ];
+        if let Some(i) = c::tab_bar(ui, t, &tabs, self.top_tab_selected) {
+            self.top_tab_selected = i;
+        }
+        ui.add_space(14.0);
+
+        // Three-column chat surface mock — sidebar | history | rail.
+        ui.horizontal_top(|ui| {
+            // Sidebar.
+            ui.allocate_ui_with_layout(
+                egui::vec2(220.0, 260.0),
+                egui::Layout::top_down(egui::Align::Min).with_cross_justify(true),
+                |ui| {
+                    c::conversation_sidebar(ui, t, |ui| {
+                        c::thread_row(
+                            ui,
+                            t,
+                            "Power supply",
+                            "Let's switch the LDO to AMS1117…",
+                            "2m",
+                            true,
+                            false,
+                        );
+                        c::thread_row(
+                            ui,
+                            t,
+                            "USB-C subsystem",
+                            "Add CC pull-downs and the…",
+                            "3h",
+                            false,
+                            false,
+                        );
+                        c::thread_row(
+                            ui,
+                            t,
+                            "Bootstrap caps",
+                            "What size for the buck stage?",
+                            "yesterday",
+                            false,
+                            false,
+                        );
+                        c::sidebar_divider(ui, t);
+                        c::thread_row(
+                            ui,
+                            t,
+                            "Workshop",
+                            "Cross-design notes & one-offs",
+                            "",
+                            false,
+                            true,
+                        );
+                    });
+                },
+            );
+            ui.add_space(12.0);
+
+            // History column.
+            ui.allocate_ui_with_layout(
+                egui::vec2(380.0, 260.0),
+                egui::Layout::top_down(egui::Align::Min).with_cross_justify(true),
+                |ui| {
+                    egui::Frame::none()
+                        .fill(t.bg)
+                        .inner_margin(egui::Margin::same(8.0))
+                        .show(ui, |ui| {
+                            egui::ScrollArea::vertical()
+                                .id_salt("gallery_chat_history")
+                                .auto_shrink([false, false])
+                                .max_height(180.0)
+                                .show(ui, |ui| {
+                                    c::chat_bubble(ui, t, c::BubbleKind::Assistant, "", |ui| {
+                                        ui.label(
+                                            egui::RichText::new(
+                                                "Your Arduino shield design is ready! I've created a motor driver \
+                                                 board with sensors and USB-C power. What would you like to adjust?",
+                                            )
+                                            .color(t.text),
+                                        );
+                                    });
+                                    ui.add_space(10.0);
+                                    c::chat_bubble(ui, t, c::BubbleKind::User, "JA", |ui| {
+                                        ui.label(
+                                            egui::RichText::new("Replace the buzzer with a louder one.")
+                                                .color(t.text),
+                                        );
+                                    });
+                                    ui.add_space(10.0);
+                                    c::chat_bubble(ui, t, c::BubbleKind::Assistant, "", |ui| {
+                                        ui.label(
+                                            egui::RichText::new("Searching catalog… one moment.")
+                                                .color(t.text),
+                                        );
+                                    });
+                                });
+                            ui.add_space(8.0);
+                            c::chat_composer(
+                                ui,
+                                t,
+                                &mut self.composer,
+                                "Ask Tokito to modify your design…",
+                            );
+                        });
+                },
+            );
+            ui.add_space(12.0);
+
+            // Rail.
+            let rail_w = match self.rail_state {
+                c::AiHelperRailState::Hidden => 0.0,
+                c::AiHelperRailState::CollapsedGlyph => 44.0,
+                c::AiHelperRailState::Expanded => 240.0,
+            };
+            if rail_w > 0.0 {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(rail_w, 260.0),
+                    egui::Layout::top_down(egui::Align::Min).with_cross_justify(true),
+                    |ui| {
+                        let suggestions = [
+                            "Make the buzzer louder",
+                            "Add a power LED indicator",
+                            "Replace with lower cost parts",
+                        ];
+                        if let Some(action) = c::ai_helper_rail(
+                            ui,
+                            t,
+                            self.rail_state,
+                            &suggestions,
+                            &mut self.rail_composer,
+                        ) {
+                            match action {
+                                c::AiHelperRailAction::Collapse => {
+                                    self.rail_state = c::AiHelperRailState::CollapsedGlyph;
+                                }
+                                c::AiHelperRailAction::Expand => {
+                                    self.rail_state = c::AiHelperRailState::Expanded;
+                                }
+                                c::AiHelperRailAction::Close => {
+                                    self.rail_state = c::AiHelperRailState::Hidden;
+                                }
+                                _ => {}
+                            }
+                        }
+                    },
+                );
+            }
+        });
+
+        // Help button (floating bottom-right of the example window).
+        let area_pos = ui.ctx().screen_rect().right_bottom() - egui::vec2(24.0, 24.0);
+        egui::Area::new(egui::Id::new("gallery_help"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(area_pos - egui::vec2(32.0, 32.0))
+            .show(ui.ctx(), |ui| {
+                c::floating_help_button(ui, t);
+            });
     }
 }

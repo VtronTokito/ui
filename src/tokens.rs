@@ -134,6 +134,21 @@ pub struct Tokens {
     pub selection: Color32,
     /// Preview backdrop (place-tool ghost, drag preview).
     pub preview_bg: Color32,
+
+    // -----------------------------------------------------------------------
+    // Chat palette
+    // -----------------------------------------------------------------------
+    //
+    // Surfaces for the chat / AI helper UI. Bubbles sit one step lighter than
+    // [`Self::bg`]; avatars use a tinted disc behind a glyph or initials.
+    /// Assistant chat bubble fill.
+    pub chat_bubble_bg: Color32,
+    /// User chat bubble fill.
+    pub chat_bubble_bg_user: Color32,
+    /// Assistant avatar disc — tinted with the brand accent.
+    pub chat_avatar_bg: Color32,
+    /// User avatar disc — neutral.
+    pub chat_avatar_bg_user: Color32,
 }
 
 impl Tokens {
@@ -190,6 +205,12 @@ impl Tokens {
             pin_hot: Color32::from_rgb(0xe0, 0x78, 0x20),
             selection: Color32::from_rgba_unmultiplied(0xe0, 0x78, 0x20, 0x33),
             preview_bg: Color32::from_rgb(0x1a, 0x1c, 0x22),
+            // Chat palette — dark. Bubble one step lighter than `bg`; assistant
+            // avatar tinted with the accent, user avatar a muted neutral disc.
+            chat_bubble_bg: Color32::from_rgb(0x15, 0x18, 0x1d),
+            chat_bubble_bg_user: Color32::from_rgb(0x1c, 0x20, 0x27),
+            chat_avatar_bg: Color32::from_rgb(0x12, 0x34, 0x30),
+            chat_avatar_bg_user: Color32::from_rgb(0x24, 0x27, 0x2e),
         }
     }
 
@@ -246,6 +267,12 @@ impl Tokens {
             pin_hot: Color32::from_rgb(0xe0, 0x78, 0x20),
             selection: Color32::from_rgba_unmultiplied(0xe0, 0x78, 0x20, 0x33),
             preview_bg: Color32::from_rgb(0xf4, 0xf5, 0xf7),
+            // Chat palette — light. Bubble matches `card`; assistant avatar
+            // a pale teal wash, user avatar a soft neutral.
+            chat_bubble_bg: Color32::from_rgb(0xff, 0xff, 0xff),
+            chat_bubble_bg_user: Color32::from_rgb(0xf0, 0xfa, 0xf7),
+            chat_avatar_bg: Color32::from_rgb(0xd8, 0xef, 0xea),
+            chat_avatar_bg_user: Color32::from_rgb(0xe6, 0xea, 0xef),
         }
     }
 

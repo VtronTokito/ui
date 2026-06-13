@@ -1485,3 +1485,763 @@ pub fn empty_state(ui: &mut Ui, t: &Tokens, message: &str) {
             });
         });
 }
+
+// ---------------------------------------------------------------------------
+// app_header
+// ---------------------------------------------------------------------------
+
+/// Actions emitted by [`app_header`] in a single frame.
+#[derive(Clone, Debug, Default)]
+pub struct AppHeaderActions {
+    /// User clicked the back chevron.
+    pub back: bool,
+    /// User clicked the settings gear.
+    pub settings: bool,
+    /// User committed an inline rename (Enter on a non-empty trimmed string).
+    /// The new name is already written into the `project_name` buffer the
+    /// caller passed in; this is just the signal to persist.
+    pub renamed: bool,
+}
+
+/// The top studio header: back chevron · brand · `|` · project name · gear.
+///
+/// The project name is **inline-editable**: pass `&mut project_name` and a
+/// `&mut is_editing` flag. Click the name to enter edit mode, Enter to commit
+/// (returns `renamed: true`), Esc to cancel (caller restores the previous
+/// name from its own copy if needed).
+pub fn app_header(
+    ui: &mut Ui,
+    t: &Tokens,
+    brand_glyph: &'static str,
+    brand_label: &str,
+    project_name: &mut String,
+    is_editing: &mut bool,
+) -> AppHeaderActions {
+    let mut actions = AppHeaderActions::default();
+    let height = 52.0;
+
+    egui::Frame::none()
+        .fill(t.bg_chrome)
+        .inner_margin(egui::Margin::symmetric(t.space_3, 0.0))
+        .show(ui, |ui| {
+            ui.set_height(height);
+            ui.horizontal_centered(|ui| {
+                if icon_button(ui, t, icons::ph::CARET_LEFT, 32.0, t.text_2).clicked() {
+                    actions.back = true;
+                }
+                ui.add_space(t.space_2);
+
+                // Brand block: small accented disc + wordmark.
+                let disc = vec2(28.0, 28.0);
+                let (disc_rect, _) = ui.allocate_exact_size(disc, Sense::hover());
+                ui.painter()
+                    .rect_filled(disc_rect, t.rounding_sm(), t.accent);
+                ui.painter().text(
+                    disc_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    brand_glyph,
+                    icons::font(16.0),
+                    t.accent_ink,
+                );
+                ui.add_space(t.space_2);
+                ui.label(RichText::new(brand_label).strong().color(t.text));
+
+                // Divider `|`.
+                ui.add_space(t.space_3);
+                let (sep_rect, _) =
+                    ui.allocate_exact_size(vec2(1.0, height - 24.0), Sense::hover());
+                ui.painter().line_segment(
+                    [sep_rect.center_top(), sep_rect.center_bottom()],
+                    Stroke::new(1.0, t.border),
+                );
+                ui.add_space(t.space_3);
+
+                // Project name — display or inline-edit.
+                if *is_editing {
+                    let resp = ui.add(
+                        egui::TextEdit::singleline(project_name)
+                            .desired_width(260.0)
+                            .margin(egui::Margin::symmetric(8.0, 4.0)),
+                    );
+                    if resp.lost_focus() {
+                        *is_editing = false;
+                        if ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            && !project_name.trim().is_empty()
+                        {
+                            actions.renamed = true;
+                        }
+                    } else if !resp.has_focus() {
+                        resp.request_focus();
+                    }
+                } else {
+                    let label = RichText::new(project_name.as_str()).color(t.text_2);
+                    let resp = ui.add(egui::Label::new(label).sense(Sense::click()));
+                    if resp.clicked() {
+                        *is_editing = true;
+                    }
+                }
+
+                // Right side: settings gear.
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if icon_button(ui, t, icons::ph::GEAR_SIX, 32.0, t.text_2).clicked() {
+                        actions.settings = true;
+                    }
+                });
+            });
+        });
+
+    actions
+}
+
+// ---------------------------------------------------------------------------
+// tab_bar
+// ---------------------------------------------------------------------------
+
+/// One entry in a [`tab_bar`]: either a tab with an icon + label, or a
+/// vertical divider for visual grouping.
+#[derive(Clone, Copy, Debug)]
+pub enum TabItem<'a> {
+    Tab {
+        icon: &'a str,
+        label: &'a str,
+    },
+    /// A thin vertical separator. Visually groups tabs (e.g.
+    /// `Chat · Plan · Artifacts | Schematic · PCB · BOM · …`).
+    Divider,
+}
+
+/// Flat top-of-page tab strip.
+///
+/// `items` is the ordered slice of tabs / dividers. `selected` is the **index
+/// into `items`** of the active tab (dividers count as positions for
+/// counting purposes; they're never selected).
+///
+/// Returns the clicked tab's index in `items`, or `None` if no tab was
+/// clicked this frame.
+///
+/// Visual: selected tab is a filled accent pill; unselected tabs render an
+/// icon + label in muted ink with a subtle hover wash.
+pub fn tab_bar(ui: &mut Ui, t: &Tokens, items: &[TabItem<'_>], selected: usize) -> Option<usize> {
+    let mut clicked = None;
+    egui::Frame::none()
+        .fill(t.bg_chrome)
+        .stroke(Stroke::new(1.0, t.border_soft))
+        .inner_margin(egui::Margin::symmetric(t.space_3, t.space_1))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = t.space_1;
+                for (i, item) in items.iter().enumerate() {
+                    match item {
+                        TabItem::Tab { icon, label } => {
+                            if tab_pill(ui, t, icon, label, selected == i) {
+                                clicked = Some(i);
+                            }
+                        }
+                        TabItem::Divider => {
+                            ui.add_space(t.space_2);
+                            let (rect, _) = ui.allocate_exact_size(vec2(1.0, 18.0), Sense::hover());
+                            ui.painter().line_segment(
+                                [rect.center_top(), rect.center_bottom()],
+                                Stroke::new(1.0, t.border),
+                            );
+                            ui.add_space(t.space_2);
+                        }
+                    }
+                }
+            });
+        });
+    clicked
+}
+
+fn tab_pill(ui: &mut Ui, t: &Tokens, icon: &str, label: &str, selected: bool) -> bool {
+    let h = 30.0;
+    // Pre-measure label width so the pill grows naturally.
+    let galley = ui.painter().layout_no_wrap(
+        label.to_string(),
+        TextStyle::Body.resolve(ui.style()),
+        if selected { t.accent_ink } else { t.text_2 },
+    );
+    let pad = 12.0;
+    let icon_w = 18.0;
+    let gap = 6.0;
+    let w = pad + icon_w + gap + galley.size().x + pad;
+
+    let (rect, response) = ui.allocate_exact_size(vec2(w, h), Sense::click());
+    let hv = hover_t(ui, response.id, response.hovered());
+
+    let fill = if selected {
+        t.accent
+    } else {
+        lerp_color(Color32::TRANSPARENT, t.card_hover, hv)
+    };
+    let ink = if selected {
+        t.accent_ink
+    } else {
+        lerp_color(t.text_2, t.text, hv)
+    };
+
+    ui.painter().rect_filled(rect, t.rounding_sm(), fill);
+
+    let mut x = rect.left() + pad;
+    let center_y = rect.center().y;
+    ui.painter().text(
+        pos2(x + icon_w * 0.5, center_y),
+        egui::Align2::CENTER_CENTER,
+        icon,
+        icons::font(15.0),
+        ink,
+    );
+    x += icon_w + gap;
+    ui.painter().text(
+        pos2(x, center_y),
+        egui::Align2::LEFT_CENTER,
+        label,
+        TextStyle::Body.resolve(ui.style()),
+        ink,
+    );
+
+    response.clicked()
+}
+
+// ---------------------------------------------------------------------------
+// chat surface — avatar, bubble, composer
+// ---------------------------------------------------------------------------
+
+/// The party a [`chat_bubble`] or [`chat_avatar`] belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BubbleKind {
+    Assistant,
+    User,
+}
+
+/// Avatar disc shown next to a [`chat_bubble`]. The assistant variant paints
+/// a sparkle glyph; the user variant paints up to two initial letters.
+pub fn chat_avatar(ui: &mut Ui, t: &Tokens, kind: BubbleKind, initials: &str) -> Response {
+    let side = 28.0;
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(side), Sense::hover());
+    let (fill, ink, glyph_size) = match kind {
+        BubbleKind::Assistant => (t.chat_avatar_bg, t.accent, 14.0),
+        BubbleKind::User => (t.chat_avatar_bg_user, t.text, 12.0),
+    };
+    ui.painter().circle_filled(rect.center(), side * 0.5, fill);
+    match kind {
+        BubbleKind::Assistant => {
+            ui.painter().text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                icons::ph::SPARKLE,
+                icons::font(glyph_size),
+                ink,
+            );
+        }
+        BubbleKind::User => {
+            let label = initials.chars().take(2).collect::<String>().to_uppercase();
+            ui.painter().text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                &label,
+                TextStyle::Small.resolve(ui.style()),
+                ink,
+            );
+        }
+    }
+    response
+}
+
+/// A single chat message bubble.
+///
+/// The bubble is left-aligned with the assistant avatar for `Assistant`, and
+/// right-aligned (avatar on the right) for `User`. `body` runs inside the
+/// bubble's content rect — it can render plain text, markdown later, or
+/// stacked widgets (tool-call cards, mutation cards). The bubble grows to
+/// fit; the caller controls the column width via the surrounding `Ui`.
+///
+/// `initials` is used by the user-kind avatar; pass an empty string for the
+/// assistant kind.
+pub fn chat_bubble(
+    ui: &mut Ui,
+    t: &Tokens,
+    kind: BubbleKind,
+    initials: &str,
+    body: impl FnOnce(&mut Ui),
+) {
+    let layout = match kind {
+        BubbleKind::Assistant => Layout::left_to_right(Align::Min),
+        BubbleKind::User => Layout::right_to_left(Align::Min),
+    };
+    ui.with_layout(layout, |ui| {
+        chat_avatar(ui, t, kind, initials);
+        ui.add_space(t.space_2);
+        let fill = match kind {
+            BubbleKind::Assistant => t.chat_bubble_bg,
+            BubbleKind::User => t.chat_bubble_bg_user,
+        };
+        egui::Frame::none()
+            .fill(fill)
+            .rounding(t.rounding_sm())
+            .inner_margin(egui::Margin::symmetric(14.0, 12.0))
+            .show(ui, |ui| {
+                ui.set_max_width(ui.available_width().min(640.0));
+                body(ui);
+            });
+    });
+}
+
+/// State for [`chat_composer`].
+#[derive(Clone, Debug, Default)]
+pub struct ChatComposerState {
+    /// The current draft text.
+    pub text: String,
+    /// `true` while the assistant is streaming — flips the send glyph to a
+    /// Stop affordance and disables submit on Enter.
+    pub streaming: bool,
+}
+
+/// Composer actions emitted in a single frame.
+#[derive(Clone, Debug)]
+pub enum ComposerAction {
+    /// User submitted the draft. The state's `text` has already been cleared.
+    Submit(String),
+    /// User pressed the Stop affordance while streaming.
+    Stop,
+}
+
+/// Multi-line chat composer with a Send / Stop affordance.
+///
+/// Enter submits; Shift+Enter inserts a newline. Submitting clears the text
+/// buffer and returns the submitted string in `ComposerAction::Submit`. While
+/// `state.streaming` is `true`, the trailing button paints as a Stop glyph
+/// and Enter no longer submits — clicking emits `ComposerAction::Stop`.
+pub fn chat_composer(
+    ui: &mut Ui,
+    t: &Tokens,
+    state: &mut ChatComposerState,
+    hint: &str,
+) -> Option<ComposerAction> {
+    let mut action = None;
+
+    egui::Frame::none()
+        .fill(t.card)
+        .stroke(Stroke::new(1.0, t.border))
+        .rounding(t.rounding_md())
+        .inner_margin(egui::Margin::symmetric(t.space_3, t.space_2))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                let send_side = 36.0;
+                let composer_w = (ui.available_width() - send_side - t.space_2).max(0.0);
+                let resp = ui.add_sized(
+                    [composer_w, 0.0],
+                    egui::TextEdit::multiline(&mut state.text)
+                        .frame(false)
+                        .desired_rows(1)
+                        .hint_text(hint),
+                );
+
+                // Enter to submit (Shift+Enter falls through to TextEdit and
+                // inserts a newline). Only when not streaming.
+                let pressed_enter =
+                    ui.input(|i| i.key_pressed(egui::Key::Enter) && !i.modifiers.shift);
+                if resp.has_focus()
+                    && pressed_enter
+                    && !state.streaming
+                    && !state.text.trim().is_empty()
+                {
+                    let submitted = std::mem::take(&mut state.text);
+                    action = Some(ComposerAction::Submit(submitted.trim().to_string()));
+                }
+
+                ui.add_space(t.space_2);
+                // Send / Stop button.
+                let (glyph, enabled) = if state.streaming {
+                    (icons::ph::STOP, true)
+                } else {
+                    (icons::ph::PAPER_PLANE_RIGHT, !state.text.trim().is_empty())
+                };
+                if send_button(ui, t, glyph, send_side, enabled).clicked() {
+                    if state.streaming {
+                        action = Some(ComposerAction::Stop);
+                    } else if !state.text.trim().is_empty() {
+                        let submitted = std::mem::take(&mut state.text);
+                        action = Some(ComposerAction::Submit(submitted.trim().to_string()));
+                    }
+                }
+            });
+        });
+
+    action
+}
+
+fn send_button(ui: &mut Ui, t: &Tokens, glyph: &str, side: f32, enabled: bool) -> Response {
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(side), Sense::click());
+    let hv = if enabled {
+        hover_t(ui, response.id, response.hovered())
+    } else {
+        0.0
+    };
+    let fill = if enabled {
+        lerp_color(t.accent, t.accent.gamma_multiply(1.15), hv)
+    } else {
+        t.card_hover
+    };
+    let ink = if enabled {
+        t.accent_ink
+    } else {
+        t.text_disabled
+    };
+    ui.painter().rect_filled(rect, t.rounding_sm(), fill);
+    ui.painter().text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        glyph,
+        icons::font(16.0),
+        ink,
+    );
+    response
+}
+
+// ---------------------------------------------------------------------------
+// floating_help_button
+// ---------------------------------------------------------------------------
+
+/// The bottom-right circular `?` affordance that opens a help overlay.
+///
+/// Render this in an [`egui::Area`] anchored to the bottom-right of the
+/// surface — the primitive itself just paints the button.
+pub fn floating_help_button(ui: &mut Ui, t: &Tokens) -> Response {
+    let side = 32.0;
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(side), Sense::click());
+    let hv = hover_t(ui, response.id, response.hovered());
+    let fill = lerp_color(t.card, t.card_hover, hv);
+    let border = lerp_color(t.border, t.border_strong, hv);
+    ui.painter().circle_filled(rect.center(), side * 0.5, fill);
+    ui.painter()
+        .circle_stroke(rect.center(), side * 0.5 - 0.5, Stroke::new(1.0, border));
+    ui.painter().text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        "?",
+        TextStyle::Body.resolve(ui.style()),
+        t.text_2,
+    );
+    response
+}
+
+// ---------------------------------------------------------------------------
+// ai_helper_rail
+// ---------------------------------------------------------------------------
+
+/// Visibility / size state of the [`ai_helper_rail`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AiHelperRailState {
+    /// Not rendered at all.
+    Hidden,
+    /// Thin (~44 px) icon-only rail with a single sparkle button to expand.
+    CollapsedGlyph,
+    /// Full ~280 px rail with suggestions and a quick composer.
+    Expanded,
+}
+
+/// Action emitted by the [`ai_helper_rail`] in a single frame.
+#[derive(Clone, Debug)]
+pub enum AiHelperRailAction {
+    /// The user clicked a suggestion chip; index into the slice passed in.
+    SuggestionClicked(usize),
+    /// The rail's quick composer submitted.
+    Submit(String),
+    /// The rail's quick composer Stop button pressed.
+    Stop,
+    /// The user hit the `×` to fully hide the rail.
+    Close,
+    /// The user hit the collapse button → caller should set state to
+    /// `CollapsedGlyph`.
+    Collapse,
+    /// The user clicked the collapsed glyph → caller should set state to
+    /// `Expanded`.
+    Expand,
+}
+
+/// AI Helper rail — a slim right-side surface present on every studio tab.
+///
+/// Three visual states:
+///
+/// - [`AiHelperRailState::Hidden`] — the primitive returns immediately
+///   without drawing.
+/// - [`AiHelperRailState::CollapsedGlyph`] — paints a single ~44 px column
+///   with a sparkle icon button; clicking emits `Expand`.
+/// - [`AiHelperRailState::Expanded`] — paints the full rail: header with
+///   close + collapse, a stack of suggestion chips, and a quick composer.
+///
+/// The caller is expected to host this in an [`egui::SidePanel::right`] (or
+/// equivalent) and adjust the panel's `exact_width` to match the current
+/// state.
+pub fn ai_helper_rail(
+    ui: &mut Ui,
+    t: &Tokens,
+    state: AiHelperRailState,
+    suggestions: &[&str],
+    composer: &mut ChatComposerState,
+) -> Option<AiHelperRailAction> {
+    match state {
+        AiHelperRailState::Hidden => None,
+        AiHelperRailState::CollapsedGlyph => collapsed_glyph_rail(ui, t),
+        AiHelperRailState::Expanded => expanded_rail(ui, t, suggestions, composer),
+    }
+}
+
+fn collapsed_glyph_rail(ui: &mut Ui, t: &Tokens) -> Option<AiHelperRailAction> {
+    let mut out = None;
+    egui::Frame::none()
+        .fill(t.bg_chrome)
+        .inner_margin(egui::Margin::symmetric(6.0, t.space_3))
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                if icon_button(ui, t, icons::ph::SPARKLE, 32.0, t.accent).clicked() {
+                    out = Some(AiHelperRailAction::Expand);
+                }
+            });
+        });
+    out
+}
+
+fn expanded_rail(
+    ui: &mut Ui,
+    t: &Tokens,
+    suggestions: &[&str],
+    composer: &mut ChatComposerState,
+) -> Option<AiHelperRailAction> {
+    let mut out = None;
+    egui::Frame::none()
+        .fill(t.bg_chrome)
+        .stroke(Stroke::new(1.0, t.border_soft))
+        .inner_margin(egui::Margin::same(t.space_3))
+        .show(ui, |ui| {
+            // Header — title + collapse + close.
+            ui.horizontal(|ui| {
+                ui.label(icons::icon_text(
+                    icons::ph::SPARKLE,
+                    14.0,
+                    "AI Helper",
+                    13.0,
+                    t.text,
+                ));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if icon_button(ui, t, icons::ph::X, 24.0, t.text_2).clicked() {
+                        out = Some(AiHelperRailAction::Close);
+                    }
+                    if icon_button(ui, t, icons::ph::CARET_DOUBLE_RIGHT, 24.0, t.text_2).clicked() {
+                        out = Some(AiHelperRailAction::Collapse);
+                    }
+                });
+            });
+            ui.add_space(t.space_2);
+            ui.label(
+                RichText::new("Ask Tokito to modify your design instead of hunting through panels")
+                    .size(12.0)
+                    .color(t.text_3),
+            );
+            ui.add_space(t.space_3);
+
+            // Suggestion chips — stacked vertically.
+            for (i, s) in suggestions.iter().enumerate() {
+                if rail_suggestion(ui, t, s).clicked() {
+                    out = Some(AiHelperRailAction::SuggestionClicked(i));
+                }
+                ui.add_space(t.space_1);
+            }
+
+            // Composer at bottom — push to bottom of available space.
+            ui.with_layout(
+                Layout::bottom_up(Align::Min).with_cross_justify(true),
+                |ui| {
+                    if let Some(action) =
+                        chat_composer(ui, t, composer, "Ask Tokito to change something…")
+                    {
+                        out = Some(match action {
+                            ComposerAction::Submit(s) => AiHelperRailAction::Submit(s),
+                            ComposerAction::Stop => AiHelperRailAction::Stop,
+                        });
+                    }
+                },
+            );
+        });
+    out
+}
+
+fn rail_suggestion(ui: &mut Ui, t: &Tokens, label: &str) -> Response {
+    let h = 38.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), h), Sense::click());
+    let hv = hover_t(ui, response.id, response.hovered());
+    let fill = lerp_color(t.card, t.card_hover, hv);
+    let border = lerp_color(t.border, t.border_strong, hv);
+    ui.painter().rect_filled(rect, t.rounding_sm(), fill);
+    ui.painter()
+        .rect_stroke(rect.shrink(0.5), t.rounding_sm(), Stroke::new(1.0, border));
+    ui.painter().text(
+        pos2(rect.left() + 12.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        label,
+        TextStyle::Body.resolve(ui.style()),
+        t.text,
+    );
+    response
+}
+
+// ---------------------------------------------------------------------------
+// thread_row + conversation_sidebar
+// ---------------------------------------------------------------------------
+
+/// One row in the [`conversation_sidebar`] list.
+///
+/// Two-line layout: title (bold when `selected`) + relative time on top,
+/// muted preview snippet underneath. Set `workshop = true` to paint a globe
+/// glyph beside the title for the cross-design Workshop thread.
+pub fn thread_row(
+    ui: &mut Ui,
+    t: &Tokens,
+    title: &str,
+    preview: &str,
+    time: &str,
+    selected: bool,
+    workshop: bool,
+) -> Response {
+    let h = 56.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), h), Sense::click());
+    let hv = hover_t(ui, response.id, response.hovered());
+    let fill = if selected {
+        t.accent_soft
+    } else {
+        lerp_color(Color32::TRANSPARENT, t.card_hover, hv)
+    };
+    ui.painter().rect_filled(rect, t.rounding_sm(), fill);
+
+    let pad = t.space_2;
+    let inner = rect.shrink2(vec2(pad + 4.0, pad));
+    let mut top = inner.left_top();
+    let title_y = top.y + 8.0;
+    let preview_y = top.y + 28.0;
+
+    if workshop {
+        ui.painter().text(
+            pos2(top.x, title_y),
+            egui::Align2::LEFT_CENTER,
+            icons::ph::GLOBE,
+            icons::font(13.0),
+            if selected { t.accent } else { t.text_2 },
+        );
+        top.x += 18.0;
+    }
+    // Selected vs unselected uses the row's wash (`accent_soft`) as the
+    // signal; title text stays the same ink either way for legibility.
+    ui.painter().text(
+        pos2(top.x, title_y),
+        egui::Align2::LEFT_CENTER,
+        title,
+        TextStyle::Body.resolve(ui.style()),
+        t.text,
+    );
+
+    // Time right-aligned on the top row.
+    ui.painter().text(
+        pos2(inner.right(), title_y),
+        egui::Align2::RIGHT_CENTER,
+        time,
+        TextStyle::Small.resolve(ui.style()),
+        t.text_3,
+    );
+
+    // Preview — single-line, hard truncate.
+    ui.painter().text(
+        pos2(inner.left(), preview_y),
+        egui::Align2::LEFT_CENTER,
+        truncate_for(ui, preview, inner.width()),
+        TextStyle::Small.resolve(ui.style()),
+        t.text_3,
+    );
+
+    response
+}
+
+fn truncate_for(ui: &Ui, s: &str, max_w: f32) -> String {
+    let style = TextStyle::Small.resolve(ui.style());
+    let galley = ui
+        .painter()
+        .layout_no_wrap(s.to_string(), style.clone(), Color32::WHITE);
+    if galley.size().x <= max_w {
+        return s.to_string();
+    }
+    let mut buf = String::new();
+    for ch in s.chars() {
+        buf.push(ch);
+        let g = ui
+            .painter()
+            .layout_no_wrap(format!("{buf}…"), style.clone(), Color32::WHITE);
+        if g.size().x > max_w {
+            buf.pop();
+            buf.push('…');
+            return buf;
+        }
+    }
+    buf
+}
+
+/// Actions emitted by the [`conversation_sidebar`] header / chrome (not the
+/// individual rows — those return their own `Response`).
+#[derive(Clone, Debug)]
+pub enum SidebarAction {
+    /// User hit "+ New conversation".
+    NewConversation,
+    /// User collapsed the sidebar.
+    Collapse,
+}
+
+/// The Chat-tab conversation sidebar.
+///
+/// Chrome only — the caller paints the rows inside `body` by calling
+/// [`thread_row`]. The expected layout is: design-scoped threads, then
+/// [`sidebar_divider`], then the pinned Workshop row.
+pub fn conversation_sidebar(
+    ui: &mut Ui,
+    t: &Tokens,
+    body: impl FnOnce(&mut Ui),
+) -> Option<SidebarAction> {
+    let mut out = None;
+    egui::Frame::none()
+        .fill(t.bg_chrome)
+        .stroke(Stroke::new(1.0, t.border_soft))
+        .inner_margin(egui::Margin::same(t.space_2))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new("Conversations")
+                        .small()
+                        .strong()
+                        .color(t.text_2),
+                );
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if icon_button(ui, t, icons::ph::CARET_DOUBLE_LEFT, 22.0, t.text_2).clicked() {
+                        out = Some(SidebarAction::Collapse);
+                    }
+                    if icon_button(ui, t, icons::ph::PLUS, 22.0, t.text_2).clicked() {
+                        out = Some(SidebarAction::NewConversation);
+                    }
+                });
+            });
+            ui.add_space(t.space_2);
+
+            egui::ScrollArea::vertical()
+                .id_salt("sidebar_threads")
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    body(ui);
+                });
+        });
+    out
+}
+
+/// Hairline divider intended for use inside the [`conversation_sidebar`]
+/// body, between the design-scoped threads and the pinned Workshop row.
+pub fn sidebar_divider(ui: &mut Ui, t: &Tokens) {
+    ui.add_space(t.space_2);
+    ui.separator();
+    ui.add_space(t.space_1);
+}
