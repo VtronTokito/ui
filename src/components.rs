@@ -1417,6 +1417,15 @@ impl ToastStack {
     /// Newest toasts rendered at once; older live ones queue behind them.
     pub const MAX_VISIBLE: usize = 5;
 
+    /// Hard cap on retained toasts, visible or not. `push`/`set_keyed` evict
+    /// down to this once it's exceeded, so a recurring non-keyed
+    /// `push_error`/`push_warning` (sticky, never auto-expiring) can't grow
+    /// `items` without bound over a long-running session. The currently
+    /// *visible* window (the newest [`Self::MAX_VISIBLE`] toasts, including
+    /// sticky errors) is never evicted — only older, already-invisible
+    /// entries are dropped, oldest/already-expired first.
+    pub const MAX_RETAINED: usize = 100;
+
     fn alloc_id(&mut self) -> u64 {
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1);
@@ -1442,6 +1451,7 @@ impl ToastStack {
             kind,
             until: Self::expiry(kind),
         });
+        self.enforce_capacity();
     }
 
     /// Upsert a **keyed** toast: if one with `key` already exists its message
@@ -1474,6 +1484,7 @@ impl ToastStack {
             kind,
             until: None,
         });
+        self.enforce_capacity();
     }
 
     /// Remove the keyed toast with `key`, if present. No-op otherwise.
@@ -1509,6 +1520,37 @@ impl ToastStack {
     fn prune(&mut self) {
         let now = std::time::Instant::now();
         self.items.retain(|t| t.until.is_none_or(|u| u > now));
+    }
+
+    /// Bound `items` to [`Self::MAX_RETAINED`] after an insert.
+    ///
+    /// `items` is oldest-first (pushes append), and [`toast_overlay`] renders
+    /// the newest [`Self::MAX_VISIBLE`] — that tail is the "currently
+    /// visible" window and is never touched here, so a live sticky error on
+    /// screen can never be evicted out from under the user. Already-expired
+    /// entries are dropped first (mirrors [`Self::prune`], since `push` can
+    /// run several times between overlay frames); if that alone isn't enough,
+    /// the oldest remaining invisible entries are dropped next, regardless of
+    /// kind — an off-screen sticky error the user will never scroll back to
+    /// is retained no better than a duplicate one further down the queue.
+    fn enforce_capacity(&mut self) {
+        if self.items.len() <= Self::MAX_RETAINED {
+            return;
+        }
+        let now = std::time::Instant::now();
+        self.items.retain(|t| t.until.is_none_or(|u| u > now));
+
+        let visible = Self::MAX_VISIBLE.min(self.items.len());
+        while self.items.len() > Self::MAX_RETAINED {
+            let evictable = self.items.len() - visible;
+            if evictable == 0 {
+                // Nothing left outside the visible window to evict — the cap
+                // is smaller than MAX_VISIBLE (misconfiguration); stop rather
+                // than evict something on screen.
+                break;
+            }
+            self.items.remove(0);
+        }
     }
 }
 
@@ -1573,6 +1615,115 @@ pub fn toast_overlay(ctx: &egui::Context, t: &Tokens, stack: &mut ToastStack) {
 
     if let Some(id) = dismiss {
         stack.items.retain(|toast| toast.id != id);
+    }
+}
+
+#[cfg(test)]
+mod toast_stack_tests {
+    use super::*;
+
+    /// A recurring failure condition (e.g. repeated catalog-transport
+    /// errors) hammering `push_error` for a long-running session must not
+    /// grow `items` without bound — that was the whole bug (#26).
+    #[test]
+    fn push_error_is_bounded_under_hammering() {
+        let mut stack = ToastStack::default();
+        for i in 0..10_000 {
+            stack.push_error(format!("error {i}"));
+        }
+        assert!(
+            stack.items.len() <= ToastStack::MAX_RETAINED,
+            "items grew unbounded: {} entries after 10k pushes",
+            stack.items.len()
+        );
+    }
+
+    /// Same hammering, mixing in warnings (also sticky) and infos (timed) —
+    /// the mix shouldn't change the bound.
+    #[test]
+    fn mixed_kinds_stay_bounded_under_hammering() {
+        let mut stack = ToastStack::default();
+        for i in 0..10_000 {
+            match i % 3 {
+                0 => stack.push_error(format!("error {i}")),
+                1 => stack.push_warning(format!("warning {i}")),
+                _ => stack.push_info(format!("info {i}")),
+            }
+        }
+        assert!(stack.items.len() <= ToastStack::MAX_RETAINED);
+    }
+
+    /// `toast_overlay` renders `items.iter().rev().take(MAX_VISIBLE)` — the
+    /// newest `MAX_VISIBLE` toasts. Those must survive eviction even under
+    /// heavy hammering, so a sticky error currently on screen never
+    /// disappears out from under the user.
+    #[test]
+    fn newest_visible_stickies_survive_hammering() {
+        let mut stack = ToastStack::default();
+        for i in 0..10_000u32 {
+            stack.push_error(format!("error {i}"));
+        }
+        let visible: Vec<&str> = stack
+            .items
+            .iter()
+            .rev()
+            .take(ToastStack::MAX_VISIBLE)
+            .map(|t| t.message.as_str())
+            .collect();
+        let expected: Vec<String> = (10_000 - ToastStack::MAX_VISIBLE as u32..10_000)
+            .rev()
+            .map(|i| format!("error {i}"))
+            .collect();
+        assert_eq!(visible, expected);
+    }
+
+    /// Dismissing a toast (the ✕ button in `toast_overlay`, reproduced here
+    /// via the same `retain(|t| t.id != id)` it uses) drops it immediately —
+    /// it must not linger invisibly waiting for capacity eviction.
+    #[test]
+    fn dismissed_toast_is_removed_immediately() {
+        let mut stack = ToastStack::default();
+        stack.push_error("first");
+        stack.push_error("second");
+        stack.push_error("third");
+        assert_eq!(stack.items.len(), 3);
+
+        let dismiss_id = stack.items[1].id;
+        stack.items.retain(|t| t.id != dismiss_id);
+
+        assert_eq!(stack.items.len(), 2);
+        assert!(stack.items.iter().all(|t| t.id != dismiss_id));
+        assert_eq!(stack.items[0].message, "first");
+        assert_eq!(stack.items[1].message, "third");
+    }
+
+    /// When eviction is forced, an already-expired (but not yet pruned)
+    /// entry goes before any live one, even an older live one.
+    #[test]
+    fn capacity_eviction_prefers_expired_over_oldest_live() {
+        let mut stack = ToastStack::default();
+        stack.push_info("stale");
+        stack.items[0].until = Some(std::time::Instant::now() - std::time::Duration::from_secs(1));
+
+        for i in 0..ToastStack::MAX_RETAINED {
+            stack.push_error(format!("error {i}"));
+        }
+
+        assert!(stack.items.len() <= ToastStack::MAX_RETAINED);
+        assert!(
+            stack.items.iter().all(|t| t.kind == ToastKind::Error),
+            "expired info toast should have been evicted before any live error"
+        );
+    }
+
+    /// `set_keyed` goes through the same capacity enforcement as `push`.
+    #[test]
+    fn set_keyed_is_bounded_under_hammering() {
+        let mut stack = ToastStack::default();
+        for i in 0..10_000 {
+            stack.set_keyed(format!("key-{i}"), format!("status {i}"), ToastKind::Error);
+        }
+        assert!(stack.items.len() <= ToastStack::MAX_RETAINED);
     }
 }
 
